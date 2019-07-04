@@ -18,7 +18,7 @@ RUN apt-get update; apt-get install -y \
     zip;
 
 # Install dependencies
-RUN pip install --upgrade pip MySQL-python
+RUN pip install --upgrade pip mysqlclient==1.4.2
 COPY docker/compose_files/files/wait-for-it.sh /opt/wait-for-it.sh
 RUN mkdir /opt/codalab-worksheets
 COPY worker /opt/codalab-worksheets/worker
