@@ -1,3 +1,4 @@
+from __future__ import print_function
 import httplib
 import logging
 import mimetypes
@@ -461,7 +462,7 @@ def _netcurl_bundle(uuid, port, path=''):
 
         info = local.download_manager.netcat(uuid, port, message)
     except Exception:
-        print >>sys.stderr, "{}".format(request.environ)
+        print("{}".format(request.environ), file=sys.stderr)
         raise
     finally:
         request.path_shift(-4)  # restore the URL
@@ -737,7 +738,7 @@ def delete_bundles(uuids, force, recursive, data_only, dry_run):
     If |recursive|, add all bundles downstream too.
     If |data_only|, only remove from the bundle store, not the bundle metadata.
     """
-    relevant_uuids = local.model.get_self_and_descendants(uuids, depth=sys.maxint)
+    relevant_uuids = local.model.get_self_and_descendants(uuids, depth=sys.maxsize)
     if not recursive:
         # If any descendants exist, then we only delete uuids if force = True.
         if (not force) and set(uuids) != set(relevant_uuids):

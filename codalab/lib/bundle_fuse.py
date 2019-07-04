@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from __future__ import with_statement
+from __future__ import print_function
 
 import os
 import errno
@@ -130,7 +131,7 @@ if fuse_is_available:
                     v = self.cache[key] = f(*args, **kwargs), time.time()
                 return v[0]
 
-            func.func_name = f.func_name
+            func.__name__ = f.__name__
 
             return func
 
@@ -184,7 +185,7 @@ if fuse_is_available:
 
         def verbose_print(self, msg):
             if self.verbose:
-                print('[BundleFUSE]:', msg)
+                print(('[BundleFUSE]:', msg))
 
         # Filesystem methods
         # ==================

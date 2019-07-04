@@ -9,6 +9,7 @@ threshold.  Keeps track of partial progress in a file.
         --threshold 1 \
         --doit
 """
+from __future__ import print_function
 
 import argparse
 import json
@@ -115,7 +116,7 @@ def main(args):
 
         # Record that we sent
         with open(args.sent_file, 'a') as f:
-            print >> f, json.dumps(info)
+            print(json.dumps(info), file=f)
             f.flush()
 
 

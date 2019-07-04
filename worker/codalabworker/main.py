@@ -3,6 +3,8 @@
 # directory as this file. For information about running a worker, see the
 # tutorial on the CodaLab Wiki.
 
+from __future__ import print_function
+from __future__ import absolute_import
 import argparse
 import getpass
 import os
@@ -14,13 +16,13 @@ import sys
 import multiprocessing
 
 
-from bundle_service_client import BundleServiceClient, BundleAuthException
-import docker_utils
-from formatting import parse_size
-from worker import Worker
-from local_run.local_dependency_manager import LocalFileSystemDependencyManager
-from local_run.docker_image_manager import DockerImageManager
-from local_run.local_run_manager import LocalRunManager
+from .bundle_service_client import BundleServiceClient, BundleAuthException
+from . import docker_utils
+from .formatting import parse_size
+from .worker import Worker
+from .local_run.local_dependency_manager import LocalFileSystemDependencyManager
+from .local_run.docker_image_manager import DockerImageManager
+from .local_run.local_run_manager import LocalRunManager
 
 logger = logging.getLogger(__name__)
 
@@ -112,11 +114,11 @@ def main():
     logger.info('Connecting to %s' % args.server)
     if args.password_file:
         if os.stat(args.password_file).st_mode & (stat.S_IRWXG | stat.S_IRWXO):
-            print >>sys.stderr, """
+            print("""
 Permissions on password file are too lax.
 Only the user should be allowed to access the file.
 On Linux, run:
-chmod 600 %s""" % args.password_file
+chmod 600 %s""" % args.password_file, file=sys.stderr)
             exit(1)
         with open(args.password_file) as f:
             username = f.readline().strip()

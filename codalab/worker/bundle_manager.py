@@ -1,3 +1,4 @@
+from __future__ import print_function
 import datetime
 import logging
 import os
@@ -29,7 +30,7 @@ class BundleManager(object):
     def create(codalab_manager):
         config = codalab_manager.config.get('workers')
         if not config:
-            print >>sys.stderr, 'config.json file missing a workers section.'
+            print('config.json file missing a workers section.', file=sys.stderr)
             exit(1)
 
         from codalab.worker.default_bundle_manager import DefaultBundleManager

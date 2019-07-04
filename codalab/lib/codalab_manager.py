@@ -26,6 +26,7 @@ file that specifies enough information to construct some of these classes is
 still valid. For example, the config file for a remote client will not need to
 include any server configuration.
 """
+from __future__ import print_function
 import datetime
 import getpass
 import json
@@ -253,7 +254,7 @@ class CodaLabManager(object):
         if store_type == MultiDiskBundleStore.__name__:
             return MultiDiskBundleStore(self.codalab_home)
         else:
-            print >>sys.stderr, "Invalid bundle store type \"%s\"", store_type
+            print("Invalid bundle store type \"%s\"", store_type, file=sys.stderr)
             sys.exit(1)
 
     def apply_alias(self, key):

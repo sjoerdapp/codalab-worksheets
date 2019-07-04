@@ -26,6 +26,7 @@ A genpath (generalized path) is either:
 
 See get_worksheet_lines for documentation on the specification of the directives.
 """
+from __future__ import print_function
 import copy
 import os
 import re
@@ -960,7 +961,7 @@ def interpret_items(schemas, raw_items):
 
             raw_to_block.append((len(blocks) - 1, 0))
 
-        except StandardError:
+        except Exception:
             current_schema = None
             bundle_infos[:] = []
             worksheet_infos[:] = []
@@ -980,7 +981,7 @@ def interpret_items(schemas, raw_items):
 
     # TODO: fix inconsistencies resulting from UsageErrors thrown in flush_bundles()
     if len(raw_to_block) != len(raw_items):
-        print >>sys.stderr, "WARNING: Length of raw_to_block does not match length of raw_items"
+        print("WARNING: Length of raw_to_block does not match length of raw_items", file=sys.stderr)
 
     # Package the result
     block_to_raw = {}

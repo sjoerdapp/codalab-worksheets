@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import absolute_import
 import logging
 import time
 import traceback
@@ -5,9 +7,9 @@ import socket
 import httplib
 import sys
 
-from bundle_service_client import BundleServiceException
-from download_util import BUNDLE_NO_LONGER_RUNNING_MESSAGE
-from state_committer import JsonStateCommitter
+from .bundle_service_client import BundleServiceException
+from .download_util import BUNDLE_NO_LONGER_RUNNING_MESSAGE
+from .state_committer import JsonStateCommitter
 
 VERSION = 20
 
@@ -124,7 +126,7 @@ class Worker(object):
         if self._bundle_service.start_bundle(self.id, bundle['uuid'], start_message):
             self._run_manager.create_run(bundle, resources)
         else:
-            print >>sys.stdout, 'Bundle {} no longer assigned to this worker'.format(bundle['uuid'])
+            print('Bundle {} no longer assigned to this worker'.format(bundle['uuid']), file=sys.stdout)
 
     def _read(self, socket_id, uuid, path, read_args):
         def reply(err, message={}, data=None):

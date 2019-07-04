@@ -2,10 +2,12 @@
 file_util provides helpers for dealing with file handles in robust,
 memory-efficent ways.
 """
+from __future__ import print_function
+from __future__ import absolute_import
 BUFFER_SIZE = 2 * 1024 * 1024
 
 import sys
-import formatting
+from . import formatting
 import urllib2
 import subprocess
 
@@ -41,10 +43,10 @@ def copy(source, dest, autoflush=True, print_status=None):
         if autoflush:
             dest.flush()
         if print_status:
-            print >>sys.stderr, "\r%s: %s" % (print_status, formatting.size_str(n)),
+            print("\r%s: %s" % (print_status, formatting.size_str(n)), end=' ', file=sys.stderr)
             sys.stderr.flush()
     if print_status:
-        print >>sys.stderr, "\r%s: %s [done]" % (print_status, formatting.size_str(n))
+        print("\r%s: %s [done]" % (print_status, formatting.size_str(n)), file=sys.stderr)
 
 
 def strip_git_ext(path):
@@ -87,7 +89,7 @@ def download_url(source_url, target_path, print_status=False):
         out_file.write(s)
         num_bytes += len(s)
         if print_status:
-            print >>sys.stderr, '\r' + status_str(),
+            print('\r' + status_str(), end=' ', file=sys.stderr)
             sys.stderr.flush()
     if print_status:
-        print >>sys.stderr, '\r' + status_str() + ' [done]'
+        print('\r' + status_str() + ' [done]', file=sys.stderr)

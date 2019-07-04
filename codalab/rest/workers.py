@@ -1,6 +1,7 @@
 from __future__ import (
     absolute_import,
 )  # Without this line "from worker.worker import VERSION" doesn't work.
+from __future__ import print_function
 from contextlib import closing
 import httplib
 import json

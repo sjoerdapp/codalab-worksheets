@@ -1,3 +1,4 @@
+from __future__ import print_function
 import copy
 
 from codalab.bundles import get_bundle_subclass

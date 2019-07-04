@@ -388,7 +388,7 @@ def resolve_interpreted_blocks(interpreted_blocks):
         except UsageError as e:
             set_error_data(block_index, e.message)
 
-        except StandardError:
+        except Exception:
             import traceback
 
             traceback.print_exc()
@@ -401,7 +401,7 @@ def resolve_interpreted_blocks(interpreted_blocks):
 
 def is_bundle_genpath_triple(value):
     # if called after an RPC call tuples may become lists
-    need_gen_types = (types.TupleType, types.ListType)
+    need_gen_types = (tuple, list)
 
     return isinstance(value, need_gen_types) and len(value) == 3
 

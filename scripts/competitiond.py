@@ -25,6 +25,7 @@ The following string substitutions will be made in the dependency specs:
 Config file keys:
 
 """
+from __future__ import print_function
 import argparse
 import getpass
 import json
@@ -231,7 +232,7 @@ class Competition(object):
         try:
             config = ConfigSchema(strict=True).load(config).data
         except ValidationError as e:
-            print >>sys.stderr, 'Invalid config file:', e
+            print('Invalid config file:', e, file=sys.stderr)
             sys.exit(1)
         return config
 

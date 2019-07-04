@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # Main entry point for CodaLab.
 # Run 'cl' rather than this script.
+from __future__ import print_function
 import os
 import signal
 import sys

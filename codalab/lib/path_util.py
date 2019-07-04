@@ -14,6 +14,7 @@ There are a few classes of methods provided here:
   Functions that modify that filesystem in controlled ways:
     copy, make_directory, set_write_permissions, rename, remove
 """
+from __future__ import print_function
 import errno
 import hashlib
 import itertools

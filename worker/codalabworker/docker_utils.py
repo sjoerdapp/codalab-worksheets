@@ -5,12 +5,14 @@ Most are wrappers around the official Docker python client.
 A preexisting client may be passed as a keyword parameter to all functions but one is automatically
 created if not.
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 import logging
 import os
 import docker
 
-from formatting import parse_size
+from .formatting import parse_size
 
 
 MIN_API_VERSION = '1.17'

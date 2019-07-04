@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import base64
 from contextlib import closing
 import httplib
@@ -9,8 +10,8 @@ import time
 import urllib
 import urllib2
 
-from rest_client import RestClient, RestClientException
-from file_util import tar_gzip_directory
+from .rest_client import RestClient, RestClientException
+from .file_util import tar_gzip_directory
 
 
 def wrap_exception(message):

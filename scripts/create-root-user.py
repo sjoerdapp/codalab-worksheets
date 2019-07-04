@@ -2,6 +2,7 @@
 """
 Script that creates the root user.
 """
+from __future__ import print_function
 import sys
 
 sys.path.append('.')

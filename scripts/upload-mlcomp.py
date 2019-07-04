@@ -6,6 +6,7 @@
 
 # Usage: directories to upload
 
+from __future__ import print_function
 import sys, os, yaml
 
 for path in sys.argv[1:]:

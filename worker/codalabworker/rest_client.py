@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 from contextlib import closing
 from cStringIO import StringIO
 import httplib
@@ -6,7 +7,7 @@ import urllib
 import urllib2
 import urlparse
 
-from file_util import un_gzip_stream
+from .file_util import un_gzip_stream
 
 
 class RestClientException(Exception):
