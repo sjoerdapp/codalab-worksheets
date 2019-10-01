@@ -143,6 +143,7 @@ class DockerImageManager:
             # Hence, we append the latest tag to the image spec if there's no tag specified otherwise at the very beginning
             image_spec += ':latest'
         try:
+            self._docker.images.pull(image_spec)
             image = self._docker.images.get(image_spec)
             digests = image.attrs.get('RepoDigests', [image_spec])
             if len(digests) == 0:
