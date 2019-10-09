@@ -70,54 +70,8 @@ class TextEditorItem extends React.Component<{
             this.props.closeEditor();
             return;
         }
-
-        const {
-            ids,
-            mode,
-            showDefault,
-            defaultValue,
-            worksheetUUID,
-            after_sort_key,
-            reloadWorksheet,
-            closeEditor,
-        } = this.props;
-
-        let url = `/rest/worksheets/${worksheetUUID}/add-items`;
-        const items = this.text.split(/[\n]/);
-        // Interleave items with empty lines, so they can be rendered as separate blocks
-        // const items = [];
-        // raw_items.forEach((item, idx) => {
-        //     items.push(item);
-        //     if (idx < raw_items.length - 1) {
-        //         items.push('');
-        //     }
-        // });
-
-        const data = { items };
-
-        if (after_sort_key) {
-            data['after_sort_key'] = after_sort_key;
-        }
-
-        if (mode === 'edit') {
-            // Updating an existing item.
-            data['ids'] = ids;
-        }
-
-        $.ajax({
-            url,
-            data: JSON.stringify(data),
-            contentType: 'application/json',
-            type: 'POST',
-            success: (data, status, jqXHR) => {
-                reloadWorksheet();
-                closeEditor();
-            },
-            error: (jqHXR, status, error) => {
-                alert(createAlertText(this.url, jqHXR.responseText));
-            },
-        });
-    };
+        this.props.editWorksheet(this.text);
+    }
 
     render() {
         const { classes, defaultValue, showDefault } = this.props;

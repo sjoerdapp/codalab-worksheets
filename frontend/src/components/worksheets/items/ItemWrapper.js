@@ -41,6 +41,7 @@ class ItemWrapper extends React.Component {
             afterItem,
             worksheetUUID,
             reloadWorksheet,
+            editWorksheet,
         } = this.props;
         const showInsertButtons = false;
         const { showNewUpload, showNewRun, showNewText } = this.props;
@@ -89,6 +90,7 @@ class ItemWrapper extends React.Component {
                         after_sort_key={itemKeys.maxKey}
                         worksheetUUID={worksheetUUID}
                         reloadWorksheet={reloadWorksheet}
+                        editWorksheet={editWorksheet}
                         closeEditor={() => {
                             this.props.onHideNewText();
                         }}
