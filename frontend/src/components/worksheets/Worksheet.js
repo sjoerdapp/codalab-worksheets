@@ -764,18 +764,20 @@ class Worksheet extends React.Component {
         });
     }
 
-    // Edit a worksheet block with index *index* and replace
+    // Edit a worksheet block with index *blockIndex* and replace
     // its content with the specified *content*.
-    editWorksheet(index, content) {
+    editWorksheet(blockIndex, content) {
         const newItems = content.split("\n");
         let newRaw = [...this.state.ws.info.raw];
-
-        const block = _.find(this.state.ws.info.raw_to_block, e => e[0] === index);
+        
+        const block = [blockIndex, 0];
+        const lineIndex = this.state.ws.info.block_to_raw[`${block[0]},${block[1]}`];
         const existingBlockLength = this.state.ws.info.raw_to_block.filter(
             e => e[0] === block[0] && e[1] === block[1]
         ).length;
+        debugger;
         // Remove existing block at "index" and add in new content.
-        newRaw.splice(index, existingBlockLength, ...newItems);
+        newRaw.splice(lineIndex, existingBlockLength, ...newItems);
         this.state.ws.info.raw = newRaw;
         $('#worksheet-message').hide();
         this.setState({ updating: true });

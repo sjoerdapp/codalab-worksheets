@@ -897,6 +897,7 @@ def interpret_items(schemas, raw_items):
                     blocks[-1]['ids'].append(id)
                     blocks[-1]['sort_keys'] = blocks[-1].get('sort_keys', [])
                     blocks[-1]['sort_keys'].append(sort_key)
+                    blocks[-1]['index'] = len(blocks)
                 elif not new_last_was_empty_line:
                     block = (
                         MarkupBlockSchema()

@@ -202,6 +202,7 @@ class WorksheetItemList extends React.Component {
             var worksheet_items = [];
             info.items.forEach(
                 function(item, index) {
+                    console.log(item);
                     var focused = index === this.props.focusIndex;
                     var props = {
                         worksheetUUID: info.uuid,
@@ -217,7 +218,7 @@ class WorksheetItemList extends React.Component {
                         openWorksheet: this.props.openWorksheet,
                         handleContextMenu: this.handleContextMenu,
                         reloadWorksheet: this.props.reloadWorksheet,
-                        editWorksheet: e => this.props.editWorksheet(index, e),
+                        editWorksheet: e => this.props.editWorksheet(item.index, e),
                         ws: this.props.ws,
                         showNewUpload: this.props.showNewUpload,
                         showNewRun: this.props.showNewRun,
