@@ -781,7 +781,6 @@ class Worksheet extends React.Component {
         this.setState({ updating: true });
         this.state.ws.saveWorksheet({
             success: function(data) {
-                console.log("SUCCSE!!!");
                 this.setState({
                     updating: false,
                     showNewUpload: false,

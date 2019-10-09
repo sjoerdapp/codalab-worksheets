@@ -71,6 +71,8 @@ class TextEditorItem extends React.Component<{
             return;
         }
         this.props.editWorksheet(this.text);
+        // TODO: close editor only on success of editWorksheet.
+        this.props.closeEditor();
     }
 
     render() {
