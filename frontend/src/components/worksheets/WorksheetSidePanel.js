@@ -323,7 +323,7 @@ class WorksheetDetailSidePanel extends React.Component {
                                 <WorksheetEditableField
                                     canEdit={true}
                                     fieldName='title'
-                                    value={worksheet.title}
+                                    value={decodeURI(worksheet.title)}
                                     uuid={worksheet.uuid}
                                     onChange={this.props.bundleMetadataChanged}
                                 />

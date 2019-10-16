@@ -138,7 +138,7 @@ class TableWorksheetRow extends React.Component {
         var item = this.props.item;
         var worksheet_display = item.name;
         if (item.title) {
-            worksheet_display = item.title + ' [' + item.name + ']';
+            worksheet_display = decodeURI(item.title) + ' [' + item.name + ']';
         }
 
         var className = /*'type-worksheet' + */ this.props.focused ? ' focused' : '';
