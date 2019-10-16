@@ -13,6 +13,7 @@ from codalab.lib.server_util import (
     decoded_body,
     json_api_include,
     query_get_bool,
+    query_get_type,
     query_get_json_api_include_set,
     query_get_list,
 )
@@ -211,24 +212,29 @@ def create_worksheet_items():
     |replace| - Replace existing items in host worksheets. Default is False.
     """
     replace = query_get_bool('replace', False)
-
     new_items = WorksheetItemSchema(strict=True, many=True).load(request.json).data
 
-    worksheet_to_items = {}
-    for item in new_items:
-        worksheet_to_items.setdefault(item['worksheet_uuid'], []).append(item)
+    if len(new_items) > 0:
+        worksheet_to_items = {}
+        for item in new_items:
+            worksheet_to_items.setdefault(item['worksheet_uuid'], []).append(item)
 
-    for worksheet_uuid, items in worksheet_to_items.items():
-        worksheet_info = get_worksheet_info(worksheet_uuid, fetch_items=True)
+        for worksheet_uuid, items in worksheet_to_items.items():
+            worksheet_info = get_worksheet_info(worksheet_uuid, fetch_items=True)
+            if replace:
+                # Replace items in the worksheet
+                update_worksheet_items(
+                    worksheet_info, [Worksheet.Item.as_tuple(i) for i in items], convert_items=False
+                )
+            else:
+                # Append items to the worksheet
+                for item in items:
+                    add_worksheet_item(worksheet_uuid, Worksheet.Item.as_tuple(item))
+    else:
         if replace:
-            # Replace items in the worksheet
-            update_worksheet_items(
-                worksheet_info, [Worksheet.Item.as_tuple(i) for i in items], convert_items=False
-            )
-        else:
-            # Append items to the worksheet
-            for item in items:
-                add_worksheet_item(worksheet_uuid, Worksheet.Item.as_tuple(item))
+            worksheet_uuid = query_get_type(str, 'uuid')
+            worksheet_info = get_worksheet_info(worksheet_uuid, fetch_items=True)
+            update_worksheet_items(worksheet_info, [], convert_items=False)
 
     return WorksheetItemSchema(many=True).dump(new_items).data
 

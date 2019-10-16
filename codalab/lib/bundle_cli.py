@@ -1746,8 +1746,11 @@ class BundleCLI(object):
                             detach = True
             if not detach:
                 new_items.append(item)
-
-        client.create('worksheet-items', data=new_items, params={'replace': True})
+        if len(new_items) > 0:
+            input_params = {'replace': True}
+        else:
+            input_params = {'replace': True, 'uuid': worksheet_uuid}
+        client.create('worksheet-items', data=new_items, params=input_params)
 
     @Commands.command(
         'rm',
