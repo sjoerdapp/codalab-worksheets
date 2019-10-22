@@ -121,7 +121,7 @@ class BundleRow extends Component {
             if (col === 0) {
                 url = baseUrl;
                 showDetailButton = 
-                        <IconButton onClick={this.handleDetailClick} style={{ padding: 2 }}>
+                        <IconButton onClick={this.handleDetailClick}>
                             {this.state.showDetail?
                             <ExpandLessIcon/>:
                             <ExpandMoreIcon/>}
@@ -148,7 +148,7 @@ class BundleRow extends Component {
                 <TableCell
                     key={col}
                     classes={{
-                        root: classes.rootNoPad,
+                        root: classes.root,
                     }}
                 >
                     {showDetailButton}
@@ -231,8 +231,8 @@ class BundleRow extends Component {
                                     </Button>
                                 </DialogActions>
                             </Dialog>
-                            
-                            </div>
+
+                        </div>
                     </TableCell>
                 </TableRow>
                 {/** ---------------------------------------------------------------------------------------------------
@@ -301,15 +301,11 @@ const styles = (theme) => ({
     root: {
         verticalAlign: 'middle !important',
         border: 'none !important',
-        wordWrap: 'break-word',
-        maxWidth: 100,
     },
     rootNoPad: {
         verticalAlign: 'middle !important',
         border: 'none !important',
         padding: '0px !important',
-        wordWrap: 'break-word',
-        maxWidth: 100,
     },
     bundleDetail: {
         paddingLeft: `${theme.spacing.largest}px !important`,
@@ -317,9 +313,6 @@ const styles = (theme) => ({
     },
     iconButtonRoot: {
         backgroundColor: theme.color.grey.lighter,
-        padding: "1px 2px",
-        marginBottom: 3,
-        marginRight: 1,
     },
     buttonRoot: {
         width: 120,
@@ -334,9 +327,8 @@ const styles = (theme) => ({
         marginRight: theme.spacing.large,
     },
     contentRow: {
-        height: 26,
+        height: 36,
         borderBottom: '2px solid #ddd',
-        padding: 0,
     },
     highlight: {
         backgroundColor: `${theme.color.primary.lightest} !important`,
