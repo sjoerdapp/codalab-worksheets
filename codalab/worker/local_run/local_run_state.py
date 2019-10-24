@@ -335,11 +335,8 @@ class LocalRunStateMachine(StateTransitioner):
         2- If run is killed, kill the container
         3- If run is finished, move to CLEANING_UP state
         """
-<<<<<<< HEAD
         s = time.time()
-        bundle_uuid = run_state.bundle['uuid']
-=======
->>>>>>> master
+
 
         def check_and_report_finished(run_state):
             try:
@@ -427,36 +424,24 @@ class LocalRunStateMachine(StateTransitioner):
                     finished, _, _ = docker_utils.check_finished(run_state.container)
                     if not finished:
                         logger.error(traceback.format_exc())
-<<<<<<< HEAD
-            self.disk_utilization[bundle_uuid]['running'] = False
-            self.disk_utilization.remove(bundle_uuid)
-            ret = run_state._replace(stage=LocalRunStage.CLEANING_UP)
-        if run_state.info['finished']:
-=======
             self.disk_utilization[run_state.bundle.uuid]['running'] = False
             self.disk_utilization.remove(run_state.bundle.uuid)
             return run_state._replace(stage=LocalRunStage.CLEANING_UP)
         if run_state.finished:
->>>>>>> master
             logger.debug(
                 'Finished run with UUID %s, exitcode %s, failure_message %s',
                 run_state.bundle.uuid,
                 run_state.exitcode,
                 run_state.failure_message,
             )
-<<<<<<< HEAD
-            self.disk_utilization[bundle_uuid]['running'] = False
-            self.disk_utilization.remove(bundle_uuid)
-            logger.info("_transition_from_RUNNING time = {}".format(time.time() - s))
 
-            ret = run_state._replace(
-=======
             self.disk_utilization[run_state.bundle.uuid]['running'] = False
             self.disk_utilization.remove(run_state.bundle.uuid)
-            return run_state._replace(
->>>>>>> master
+            logger.info("_transition_from_RUNNING time = {}".format(time.time() - s))
+            ret = run_state._replace(
                 stage=LocalRunStage.CLEANING_UP, run_status='Uploading results'
             )
+            return ret
         else:
             ret = run_state
         logger.info("_transition_from_RUNNING time = {}".format(time.time() - s))
@@ -565,17 +550,12 @@ class LocalRunStateMachine(StateTransitioner):
                     failure_message=self.uploading[run_state.bundle.uuid]['run_status']
                 )
 
-<<<<<<< HEAD
-        self.uploading.remove(bundle_uuid)
-
+        self.uploading.remove(run_state.bundle.uuid)
         ret = self.finalize_run(run_state)
         logger.info("_transition_from_UPLOADING_RESULTS time = {}".format(time.time() - s))
 
         return ret
-=======
-        self.uploading.remove(run_state.bundle.uuid)
-        return self.finalize_run(run_state)
->>>>>>> master
+
 
     def finalize_run(self, run_state):
         """
@@ -590,17 +570,13 @@ class LocalRunStateMachine(StateTransitioner):
         If a full worker cycle has passed since we got into FINALIZING we already reported to
         server so can move on to FINISHED. Can also remove bundle_path now
         """
-<<<<<<< HEAD
+
         s = time.time()
-        if run_state.info['finalized']:
-            remove_path(run_state.bundle_path)
-            ret = run_state._replace(stage=LocalRunStage.FINISHED, run_status='Finished')
-=======
         if run_state.finalized:
             if not self.shared_file_system:
                 remove_path(run_state.bundle_path)  # don't remove bundle if shared FS
-            return run_state._replace(stage=LocalRunStage.FINISHED, run_status='Finished')
->>>>>>> master
+            ret = run_state._replace(stage=LocalRunStage.FINISHED, run_status='Finished')
+            return ret
         else:
             ret = run_state
 
