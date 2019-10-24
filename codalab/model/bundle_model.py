@@ -45,10 +45,10 @@ from codalab.objects.oauth2 import OAuth2AuthCode, OAuth2Client, OAuth2Token
 from codalab.objects.user import User
 from codalab.rest.util import get_group_info
 from codalab.worker.bundle_state import State
-
+import logging
 
 SEARCH_KEYWORD_REGEX = re.compile('^([\.\w/]*)=(.*)$')
-
+logger = logging.getLogger(__name__)
 
 def str_key_dict(row):
     """
@@ -691,6 +691,7 @@ class BundleModel(object):
             Returns False if the bundle was not in STARTING state.
             Clears the job_handle metadata and removes the worker_run row.
         """
+        s = time.time()
         with self.engine.begin() as connection:
             # Make sure it's still starting.
             row = connection.execute(
@@ -718,6 +719,7 @@ class BundleModel(object):
             (done by checking the worker_run table).
             Returns True if it is.
         """
+        s = time.time()
         with self.engine.begin() as connection:
             # Check that still assigned to this worker.
             run_row = connection.execute(
@@ -731,14 +733,16 @@ class BundleModel(object):
                 'metadata': {'started': start_time, 'last_updated': start_time, 'remote': remote},
             }
             self.update_bundle(bundle, bundle_update, connection)
+            logger.info("transition_bundle_preparing = {}".format(time.time() - s))
 
-        return True
+            return True
 
     def transition_bundle_running(self, bundle, bundle_update, row, user_id, worker_id, connection):
         """
         Transitions bundle to RUNNING state:
             If bundle was WORKER_OFFLINE, also inserts a row into worker_run.
         """
+        s = time.time()
         if row.state == State.WORKER_OFFLINE:
             run_row = connection.execute(
                 cl_worker_run.select().where(cl_worker_run.c.run_uuid == bundle.uuid)
@@ -768,6 +772,7 @@ class BundleModel(object):
         self.update_bundle(
             bundle, {'state': bundle_update['state'], 'metadata': metadata_update}, connection
         )
+        logger.info("transition_bundle_running = {}".format(time.time() - s))
 
         return True
 
@@ -777,6 +782,7 @@ class BundleModel(object):
             Updates the last_updated metadata.
             Removes the corresponding row from worker_run if it exists.
         """
+        s = time.time()
         with self.engine.begin() as connection:
             # Check that it still exists and is running
             row = connection.execute(
@@ -799,7 +805,10 @@ class BundleModel(object):
                 'metadata': {'last_updated': int(time.time())},
             }
             self.update_bundle(bundle, bundle_update, connection)
-        return True
+
+            logger.info("transition_bundle_worker_offline = {}".format(time.time() - s))
+
+            return True
 
     def transition_bundle_finalizing(self, bundle, user_id, exitcode, failure_message, connection):
         """
@@ -808,6 +817,7 @@ class BundleModel(object):
             If the user running the bundle was the CodaLab root user,
             increments the time used by the bundle owner.
         """
+        s = time.time()
         if failure_message is None and exitcode is not None and exitcode != 0:
             failure_message = 'Exit code %d' % exitcode
         # Build metadata
@@ -823,7 +833,9 @@ class BundleModel(object):
 
         if user_id == self.root_user_id:
             self.increment_user_time_used(bundle.owner_id, getattr(bundle.metadata, 'time', 0))
-
+        import json
+        logger.info("bundle.metadata = {}".format(json.dumps(bundle.metadata, indent=4, sort_keys=True)))
+        logger.info("transition_bundle_finalizing = {}".format(time.time() - s))
         return True
 
     def transition_bundle_finished(self, bundle):
@@ -2171,6 +2183,8 @@ class BundleModel(object):
         """
         user_info = self.get_user_info(user_id)
         user_info['time_used'] += amount
+        logger.info("user_info = {}".format(user_info))
+
         self.update_user_info(user_info)
 
     def get_user_time_quota_left(self, user_id):

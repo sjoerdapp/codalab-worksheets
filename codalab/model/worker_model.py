@@ -152,10 +152,11 @@ class WorkerModel(object):
         with self._engine.begin() as conn:
             worker_rows = conn.execute(
                 select([cl_worker, cl_worker_dependency.c.dependencies]).select_from(
-                    cl_worker.outerjoin(cl_worker_dependency)
+                    cl_worker.outerjoin(cl_worker_dependency, cl_worker.c.user_id == cl_worker_dependency.c.user_id)
                 )
             ).fetchall()
             worker_run_rows = conn.execute(cl_worker_run.select()).fetchall()
+        logger.info("WorkerModel worker_rows = {}, worker_run_rows = {}".format(worker_rows, worker_run_rows))
 
         worker_dict = {
             (row.user_id, row.worker_id): {
@@ -175,8 +176,14 @@ class WorkerModel(object):
             }
             for row in worker_rows
         }
+
+        logger.info("worker_dict = {}".format(worker_dict))
+
         for row in worker_run_rows:
             worker_dict[(row.user_id, row.worker_id)]['run_uuids'].append(row.run_uuid)
+
+        logger.info("worker_dict after appended run_uuids = {}".format(worker_dict))
+
         return list(worker_dict.values())
 
     def get_bundle_worker(self, uuid):

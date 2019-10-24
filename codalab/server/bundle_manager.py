@@ -80,10 +80,19 @@ class BundleManager(object):
             return self._exiting
 
     def _run_iteration(self):
+        s = time.time()
         self._stage_bundles()
+        logger.info("stage bundles takes time = {}".format(time.time()-s))
+        s = time.time()
         self._make_bundles()
+        logger.info("make bundles takes time = {}".format(time.time()-s))
+        s = time.time()
         self._schedule_run_bundles()
+        logger.info("schedule bundles takes time = {}".format(time.time()-s))
+        s = time.time()
         self._fail_unresponsive_bundles()
+        logger.info("failed bundles takes time = {}".format(time.time()-s))
+
 
     def _stage_bundles(self):
         """
@@ -299,6 +308,9 @@ class BundleManager(object):
         True, then schedules on workers run by the owner of each bundle.
         Otherwise, uses CodaLab-owned workers, which have user ID root_user_id.
         """
+        s = time.time()
+        logger.info("INPUT PARAM: _schedule_run_bundles_on_workers workers = {}, user_owned = {}".format(workers, user_owned))
+
         for bundle in self._model.batch_get_bundles(state=State.STAGED, bundle_type='run'):
             if user_owned:
                 workers_list = workers.user_owned_workers(bundle.owner_id)
@@ -310,12 +322,20 @@ class BundleManager(object):
                     )
                     continue  # Don't start this bundle yet
                 workers_list = workers.user_owned_workers(self._model.root_user_id)
+            logger.info("get_user_parallel_run_quota_left takes time = {}".format(time.time()-s))
+            logger.info("WHAT HAPPEDEN!!!!")
+            logger.info("ORG_workers_list = {}".format(workers_list))
 
             workers_list = self._deduct_worker_resources(workers_list)
+            logger.info("workers_list = {}".format(workers_list))
             bundle_resources = self._compute_bundle_resources(bundle)
+            logger.info("bundle_resources memory = {}, cpu = {}, disk = {}".format(bundle_resources.memory,bundle_resources.cpus, bundle_resources.disk))
             workers_list = self._filter_and_sort_workers(workers_list, bundle, bundle_resources)
+            logger.info("sorted_workers_list = {}".format(workers_list))
 
             for worker in workers_list:
+                logger.info("Lets starting workers = {}".format(worker))
+
                 if self._try_start_bundle(workers, worker, bundle):
                     break
 
@@ -324,6 +344,7 @@ class BundleManager(object):
         From each worker, subtract resources used by running bundles. Modifies the list.
         """
         for worker in workers_list:
+            logger.info("_deduct_worker_resources = {}".format(worker))
             for uuid in worker['run_uuids']:
                 bundle = self._model.get_bundle(uuid)
                 bundle_resources = self._compute_bundle_resources(bundle)
@@ -345,10 +366,12 @@ class BundleManager(object):
             worker_id = worker['worker_id']
             has_gpu[worker_id] = worker['gpus'] > 0
 
+        logger.info("_filter_and_sort_workers: has_gpu = {}".format(has_gpu))
         # Filter by CPUs.
         workers_list = [
             worker for worker in workers_list if worker['cpus'] >= bundle_resources.cpus
         ]
+        logger.info("_filter_and_sort_workers Check filter out cpus = {}".format(workers_list))
 
         # Filter by GPUs.
         if bundle_resources.gpus:
@@ -356,10 +379,14 @@ class BundleManager(object):
                 worker for worker in workers_list if worker['gpus'] >= bundle_resources.gpus
             ]
 
+        logger.info("_filter_and_sort_workers Check filter out gpus = {}".format(workers_list))
+
         # Filter by memory.
         workers_list = [
-            worker for worker in workers_list if worker['memory_bytes'] >= bundle_resources.memory
+            worker for worker in workers_list if worker['memory_bytes'] <= bundle_resources.memory
         ]
+        logger.info("_filter_and_sort_workers bundle_resources.memory = {}".format(bundle_resources.memory))
+        logger.info("_filter_and_sort_workers Check filter out memory = {}".format(workers_list))
 
         # Filter by tag.
         request_queue = bundle.metadata.request_queue
@@ -396,6 +423,7 @@ class BundleManager(object):
             return (gpu_priority, len(needed_deps & deps), worker['cpus'], random.random())
 
         workers_list.sort(key=get_sort_key, reverse=True)
+        logger.info("_filter_and_sort_workers get_sort_key = {}".format(workers_list))
 
         return workers_list
 
@@ -404,6 +432,7 @@ class BundleManager(object):
         Tries to start running the bundle on the given worker, returning False
         if that failed.
         """
+        logger.info("_try_start_bundle>>>>>>>>")
         if self._model.transition_bundle_starting(bundle, worker['user_id'], worker['worker_id']):
             workers.set_starting(bundle.uuid, worker)
             if (
@@ -465,10 +494,21 @@ class BundleManager(object):
         Compute the disk limit used for scheduling the run.
         The default is min(disk quota the user has left, global max)
         """
+
+        disk_left = self._model.get_user_disk_quota_left(bundle.owner_id)
+        logger.info("_compute_request_disk request_disk = {}, disk_left = {}, max_request_disk = {}".format(bundle.metadata.request_disk, disk_left, self._max_request_disk))
+
         if not bundle.metadata.request_disk:
-            return min(
-                self._model.get_user_disk_quota_left(bundle.owner_id) - 1, self._max_request_disk
-            )
+            if self._max_request_disk > 0:
+                logger.info("_compute_request_disk LET'S GET THE MINVALUE")
+                return min(
+                    self._model.get_user_disk_quota_left(bundle.owner_id) - 1, self._max_request_disk
+                )
+            else:
+                logger.info("_compute_request_disk LET'S get_user_disk_quota_left")
+                return self._model.get_user_disk_quota_left(bundle.owner_id) - 1
+
+        logger.info("_compute_request_disk LET'S PARSE SIZE")
         return formatting.parse_size(bundle.metadata.request_disk)
 
     def _compute_request_time(self, bundle):
@@ -570,8 +610,10 @@ class BundleManager(object):
         READY / FAILED, no worker_run DB entry:
             Finished.
         """
+        db_workers = self._worker_model.get_workers()
+        logger.info("Let's check the workers from database = {}!!!".format(db_workers))
         workers = WorkerInfoAccessor(self._worker_model.get_workers())
-
+        logger.info("WorkerInfoAccessor = {}, _uuid_to_worker = {}, _user_id_to_workers = {}".format(workers.__dict__, workers._uuid_to_worker, workers._user_id_to_workers))
         # Handle some exceptional cases.
         self._cleanup_dead_workers(workers)
         self._restage_stuck_starting_bundles(workers)

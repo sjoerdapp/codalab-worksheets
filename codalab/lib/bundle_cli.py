@@ -1700,12 +1700,16 @@ class BundleCLI(object):
         args.bundle_spec = spec_util.expand_specs(args.bundle_spec)
 
         client, worksheet_uuid = self.parse_client_worksheet_uuid(args.worksheet_spec)
+
         # Resolve all the bundles first, then detach.
         # This is important since some of the bundle specs (^1 ^2) are relative.
         bundle_uuids = self.target_specs_to_bundle_uuids(client, worksheet_uuid, args.bundle_spec)
         worksheet_info = client.fetch(
             'worksheets', worksheet_uuid, params={'include': ['items', 'items.bundle']}
         )
+
+
+        print(worksheet_info)
 
         # Number the bundles: c c a b c => 3 2 1 1 1
         items = worksheet_info['items']
