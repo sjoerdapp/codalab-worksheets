@@ -24,6 +24,8 @@ import os
 import socket
 import subprocess
 
+from test_cli import TestModule
+
 DEFAULT_SERVICES = ['mysql', 'nginx', 'frontend', 'rest-server', 'bundle-manager', 'worker', 'init']
 
 ALL_SERVICES = DEFAULT_SERVICES + ['test', 'monitor', 'worker-manager-cpu', 'worker-manager-gpu']
@@ -64,7 +66,9 @@ def should_run_service(args, service):
     services = [] if args.services is None else args.services
     if 'default' in args.services:
         services.extend(DEFAULT_SERVICES)
-
+    # 'worker-shared-file-system` is just `worker` but with a different argument, so they're equivalent for us
+    if service == 'worker-shared-file-system':
+        service = 'worker'
     return (service in services) and ('no-' + service not in services)
 
 
@@ -270,9 +274,21 @@ class CodalabArgs(object):
             'delete',
             help='Bring down any existing CodaLab service instances (and delete all non-external data!)',
         )
+        test_cmd = subparsers.add_parser(
+            'test', help='Run the test suite and optionally pick which tests to run'
+        )
 
         # Arguments for every subcommand
-        for cmd in [start_cmd, logs_cmd, pull_cmd, build_cmd, run_cmd, stop_cmd, delete_cmd]:
+        for cmd in [
+            start_cmd,
+            logs_cmd,
+            pull_cmd,
+            build_cmd,
+            run_cmd,
+            stop_cmd,
+            delete_cmd,
+            test_cmd,
+        ]:
             cmd.add_argument(
                 '--dry-run',
                 action='store_true',
@@ -316,12 +332,24 @@ class CodalabArgs(object):
                 default=False,
             )
             cmd.add_argument(
-                'images',
+                (
+                    'images' if cmd == build_cmd else '--images'
+                ),  # For the explicit build command make this argument positional
                 default='services',
                 help='Images to build. \'services\' for server-side images (frontend, server, worker) \
                         \'all\' to include default execution images',
                 choices=CodalabServiceManager.ALL_IMAGES + ['all', 'services'],
                 nargs='*',
+            )
+            cmd.add_argument(
+                (
+                    'tests' if cmd == test_cmd else '--tests'
+                ),  # For the explicit test command make this argument positional
+                metavar='TEST',
+                nargs='+',
+                type=str,
+                choices=list(TestModule.modules.keys()) + ['all', 'default'],
+                help='Tests to run. One of: {%(choices)s}',
             )
             cmd.add_argument(
                 '--dev',
@@ -368,7 +396,7 @@ class CodalabArgs(object):
             choices=ALL_SERVICES,
             help='Service container to run command on',
         )
-        run_cmd.add_argument('command', metavar='CMD', type=str, help='Command to run')
+        run_cmd.add_argument('service_command', metavar='CMD', type=str, help='Command to run')
 
         return parser
 
@@ -461,7 +489,7 @@ class CodalabServiceManager(object):
                 self.build_images()
             self.start_services()
         elif command == 'run':
-            self.run_service_cmd(self.args.command, service=self.args.service)
+            self.run_service_cmd(self.args.service_command, service=self.args.service)
         elif command == 'logs':
             cmd_str = 'logs'
             if self.args.tail is not None:
@@ -473,8 +501,10 @@ class CodalabServiceManager(object):
             self._run_compose_cmd('stop')
         elif command == 'delete':
             self._run_compose_cmd('down --remove-orphans -v')
+        elif command == 'test':
+            self.run_tests()
         else:
-            raise Exception('Bad command: ' + self.command)
+            raise Exception('Bad command: ' + command)
 
     def build_image(self, image):
         print_header('Building {} image'.format(image))
@@ -584,15 +614,17 @@ class CodalabServiceManager(object):
             )  # TODO: replace with shlex.quote(cmd) once we're on Python 3
         )
 
+    @staticmethod
+    def wait(host, port, cmd):
+        return '/opt/wait-for-it.sh {}:{} -- {}'.format(host, port, cmd)
+
+    def wait_mysql(self, cmd):
+        return self.wait(self.args.mysql_host, self.args.mysql_port, cmd)
+
+    def wait_rest_server(self, cmd):
+        return self.wait('rest-server', self.args.rest_port, cmd)
+
     def start_services(self):
-        def wait(host, port, cmd):
-            return '/opt/wait-for-it.sh {}:{} -- {}'.format(host, port, cmd)
-
-        def wait_mysql(cmd):
-            return wait(self.args.mysql_host, self.args.mysql_port, cmd)
-
-        def wait_rest_server(cmd):
-            return wait('rest-server', self.args.rest_port, cmd)
 
         mysql_url = 'mysql://{}:{}@{}:{}/{}'.format(
             self.args.mysql_username,
@@ -622,7 +654,6 @@ class CodalabServiceManager(object):
                         'server/default_user_info/parallel_run_quota',
                         self.args.user_parallel_run_quota,
                     ),
-                    ('workers/shared_file_system', self.args.shared_file_system),
                     ('email/host', self.args.email_host),
                     ('email/username', self.args.email_username),
                     ('email/password', self.args.email_password),
@@ -639,7 +670,7 @@ class CodalabServiceManager(object):
 
             print_header('Creating root user')
             self.run_service_cmd(
-                wait_mysql(
+                self.wait_mysql(
                     'python3 scripts/create-root-user.py {}'.format(self.args.codalab_password)
                 )
             )
@@ -655,7 +686,7 @@ class CodalabServiceManager(object):
         if should_run_service(self.args, 'init'):
             print_header('Creating home and dashboard worksheets')
             self.run_service_cmd(
-                wait_rest_server(
+                self.wait_rest_server(
                     'cl logout && cl status && ((cl new home && cl new dashboard) || exit 0)'
                 )
             )
@@ -665,15 +696,25 @@ class CodalabServiceManager(object):
         self.bring_up_service('worker-manager-gpu')
         self.bring_up_service('frontend')
         self.bring_up_service('nginx')
-        self.bring_up_service('worker')
+        if self.args.shared_file_system:
+            self.bring_up_service('worker-shared-file-system')
+        else:
+            self.bring_up_service('worker')
 
         if should_run_service(self.args, 'test'):
-            print_header('Running tests')
-            self.run_service_cmd(
-                wait_rest_server('python3 test_cli.py --instance {} default'.format(rest_url))
-            )
+            self.run_tests()
 
         self.bring_up_service('monitor')
+
+    def run_tests(self):
+        print_header('Running tests')
+        self.run_service_cmd(
+            self.wait_rest_server(
+                'python3 test_cli.py --instance http://rest-server:{} {}'.format(
+                    self.args.rest_port, ' '.join(self.args.tests)
+                )
+            )
+        )
 
     def pull_images(self):
         for image in self.SERVICE_IMAGES:

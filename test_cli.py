@@ -30,7 +30,6 @@ import sys
 import time
 import traceback
 
-from codalab.lib.codalab_manager import CodaLabManager
 
 global cl
 # Directory where this script lives.
@@ -335,6 +334,8 @@ class ModuleContext(object):
         self.error = None
 
         # Allow for making REST calls
+        from codalab.lib.codalab_manager import CodaLabManager
+
         manager = CodaLabManager()
         self.client = manager.current_client()
 
@@ -1145,8 +1146,12 @@ def test(ctx):
         # Download the whole bundle.
         path = temp_path('')
         run_command([cl, 'download', uuid, '-o', path])
-        assert not os.path.exists(os.path.join(path, 'dir')), '"dir" should not be in bundle'
-        assert not os.path.exists(os.path.join(path, 'file')), '"file" should not be in bundle'
+        assert not os.path.exists(
+            os.path.join(path, 'dir')
+        ), '"dir" should not be in downloaded bundle'
+        assert not os.path.exists(
+            os.path.join(path, 'file')
+        ), '"file" should not be in downloaded bundle'
         with open(os.path.join(path, 'stdout')) as fileobj:
             check_contains('5\n6\n7', fileobj.read())
         shutil.rmtree(path)
@@ -1661,9 +1666,9 @@ def test(ctx):
     run_command([cl, 'wedit', wuuid, '--title', 'nonunicode'])
     check_contains('nonunicode', run_command([cl, 'print', wuuid]))
 
-    # TODO: enable with Unicode support.
-    run_command([cl, 'wedit', wuuid, '--title', 'fáncy ünicode 你好世界😊'], 1)
-    # check_contains('fáncy ünicode 你好世界😊', run_command([cl, 'print']))
+    # unicode in worksheet title
+    run_command([cl, 'wedit', wuuid, '--title', 'fáncy ünicode 你好世界😊'], 0)
+    check_contains('fáncy ünicode 你好世界😊', run_command([cl, 'print', wuuid]))
 
     # Non-unicode in file contents
     uuid = run_command([cl, 'upload', '--contents', 'nounicode'])
@@ -1703,12 +1708,23 @@ def test(ctx):
     # Check header which includes 8 columns in total from output.
     header = lines[0]
     check_contains(
-        ['worker_id', 'cpus', 'gpus', 'memory', 'free_disk', 'last_checkin', 'tag', 'runs'], header
+        [
+            'worker_id',
+            'cpus',
+            'gpus',
+            'memory',
+            'free_disk',
+            'last_checkin',
+            'tag',
+            'runs',
+            'shared_file_system',
+        ],
+        header,
     )
 
-    # Check number of not null values. First 6 columns should be not null. Column "tag" and "runs" could be empty.
+    # Check number of not null values. First 7 columns should be not null. Column "tag" and "runs" could be empty.
     worker_info = lines[2].split()
-    check_equals(True, len(worker_info) >= 6)
+    check_equals(True, len(worker_info) >= 7)
 
 
 @TestModule.register('rest1')

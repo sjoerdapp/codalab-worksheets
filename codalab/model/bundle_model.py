@@ -4,6 +4,7 @@ BundleModel is a wrapper around database calls to save and load bundle metadata.
 
 import collections
 import datetime
+import os
 import re
 import time
 from uuid import uuid4
@@ -13,7 +14,7 @@ from sqlalchemy.sql.expression import literal, true
 
 from codalab.bundles import get_bundle_subclass
 from codalab.common import IntegrityError, NotFoundError, precondition, UsageError
-from codalab.lib import crypt_util, spec_util, worksheet_util
+from codalab.lib import crypt_util, spec_util, worksheet_util, path_util
 from codalab.model.util import LikeQuery
 from codalab.model.tables import (
     bundle as cl_bundle,
@@ -37,6 +38,7 @@ from codalab.model.tables import (
     oauth2_client,
     oauth2_token,
     oauth2_auth_code,
+    worker as cl_worker,
     worker_run as cl_worker_run,
     db_metadata,
 )
@@ -209,6 +211,28 @@ class BundleModel(object):
 
     def get_worksheet_owner_ids(self, uuids):
         return self.get_owner_ids(cl_worksheet, uuids)
+
+    def get_bundle_worker(self, uuid):
+        """
+        Returns information about the worker that the given bundle is running
+        on. This method should be called only for bundles that are running.
+        """
+        with self.engine.begin() as conn:
+            row = conn.execute(
+                cl_worker_run.select().where(cl_worker_run.c.run_uuid == uuid)
+            ).fetchone()
+            precondition(row, 'Trying to find worker for bundle that is not running.')
+            worker_row = conn.execute(
+                cl_worker.select().where(
+                    and_(cl_worker.c.user_id == row.user_id, cl_worker.c.worker_id == row.worker_id)
+                )
+            ).fetchone()
+            return {
+                'user_id': worker_row.user_id,
+                'worker_id': worker_row.worker_id,
+                'shared_file_system': worker_row.shared_file_system,
+                'socket_id': worker_row.socket_id,
+            }
 
     def get_children_uuids(self, uuids):
         """
@@ -737,7 +761,7 @@ class BundleModel(object):
 
             return True
 
-    def transition_bundle_running(self, bundle, bundle_update, row, user_id, worker_id, connection):
+    def transition_bundle_running(self, bundle, worker_run, row, user_id, worker_id, connection):
         """
         Transitions bundle to RUNNING state:
             If bundle was WORKER_OFFLINE, also inserts a row into worker_run.
@@ -758,19 +782,19 @@ class BundleModel(object):
             connection.execute(cl_worker_run.insert().values(worker_run_row))
 
         metadata_update = {
-            'run_status': bundle_update['run_status'],
+            'run_status': worker_run.run_status,
             'last_updated': int(time.time()),
-            'time': bundle_update['container_time_total'],
-            'time_user': bundle_update['container_time_user'],
-            'time_system': bundle_update['container_time_system'],
-            'remote': bundle_update['remote'],
+            'time': worker_run.container_time_total,
+            'time_user': worker_run.container_time_user,
+            'time_system': worker_run.container_time_system,
+            'remote': worker_run.remote,
         }
 
-        if bundle_update['docker_image'] is not None:
-            metadata_update['docker_image'] = bundle_update['docker_image']
+        if worker_run.docker_image is not None:
+            metadata_update['docker_image'] = worker_run.docker_image
 
         self.update_bundle(
-            bundle, {'state': bundle_update['state'], 'metadata': metadata_update}, connection
+            bundle, {'state': worker_run.state, 'metadata': metadata_update}, connection
         )
         logger.info("transition_bundle_running = {}".format(time.time() - s))
 
@@ -810,7 +834,7 @@ class BundleModel(object):
 
             return True
 
-    def transition_bundle_finalizing(self, bundle, user_id, exitcode, failure_message, connection):
+    def transition_bundle_finalizing(self, bundle, user_id, worker_run, connection):
         """
         Transitions bundle to FINALIZING state:
             Saves the failure message and exit code from the worker
@@ -818,6 +842,7 @@ class BundleModel(object):
             increments the time used by the bundle owner.
         """
         s = time.time()
+        failure_message, exitcode = worker_run.failure_message, worker_run.exitcode
         if failure_message is None and exitcode is not None and exitcode != 0:
             failure_message = 'Exit code %d' % exitcode
         # Build metadata
@@ -838,7 +863,7 @@ class BundleModel(object):
         logger.info("transition_bundle_finalizing = {}".format(time.time() - s))
         return True
 
-    def transition_bundle_finished(self, bundle):
+    def transition_bundle_finished(self, bundle, bundle_location):
         """
         Transitions bundle to READY or FAILED state:
             The final state is determined by whether a failure message or exitcode
@@ -850,6 +875,10 @@ class BundleModel(object):
         state = State.FAILED if failure_message or exitcode else State.READY
         if failure_message == 'Kill requested':
             state = State.KILLED
+
+        worker = self.get_bundle_worker(bundle.uuid)
+        if worker['shared_file_system']:
+            self.update_disk_metadata(bundle, bundle_location)
 
         metadata = {'run_status': 'Finished', 'last_updated': int(time.time())}
 
@@ -863,11 +892,35 @@ class BundleModel(object):
     # Bundle state machine helper functions
     # ==========================================================================
 
-    def bundle_checkin(self, bundle, bundle_update, user_id, worker_id):
+    def update_disk_metadata(self, bundle, bundle_location, enforce_disk_quota=False):
+        """
+        Computes the disk use and data hash of the given bundle.
+        Updates the database rows for the bundle and user with the new disk use
+        """
+        dirs_and_files = None
+        if os.path.isdir(bundle_location):
+            dirs_and_files = path_util.recursive_ls(bundle_location)
+        else:
+            dirs_and_files = [], [bundle_location]
+
+        data_hash = '0x%s' % (path_util.hash_directory(bundle_location, dirs_and_files))
+        data_size = path_util.get_size(bundle_location, dirs_and_files)
+        if enforce_disk_quota:
+            disk_left = self.get_user_disk_quota_left(bundle.owner_id)
+            if data_size > disk_left:
+                raise UsageError(
+                    "Can't save bundle, bundle size %s greater than user's disk quota left: %s"
+                    % (data_size, disk_left)
+                )
+
+        bundle_update = {'data_hash': data_hash, 'metadata': {'data_size': data_size}}
+        self.update_bundle(bundle, bundle_update)
+        self.update_user_disk_used(bundle.owner_id)
+
+    def bundle_checkin(self, bundle, worker_run, user_id, worker_id):
         """
         Updates the database tables with the most recent bundle information from worker
         """
-        state = bundle_update['state']
         with self.engine.begin() as connection:
             # If bundle isn't in db anymore the user deleted it so cancel
             row = connection.execute(
@@ -876,22 +929,16 @@ class BundleModel(object):
             if not row:
                 return False
 
-            if state == State.FINALIZING:
+            if worker_run.state == State.FINALIZING:
                 # update bundle metadata using transition_bundle_running one last time before finalizing it
                 self.transition_bundle_running(
-                    bundle, bundle_update, row, user_id, worker_id, connection
+                    bundle, worker_run, row, user_id, worker_id, connection
                 )
-                return self.transition_bundle_finalizing(
-                    bundle,
-                    user_id,
-                    bundle_update['info']['exitcode'],
-                    bundle_update['info']['failure_message'],
-                    connection,
-                )
+                return self.transition_bundle_finalizing(bundle, user_id, worker_run, connection)
 
-            if state in [State.PREPARING, State.RUNNING]:
+            if worker_run.state in [State.PREPARING, State.RUNNING]:
                 return self.transition_bundle_running(
-                    bundle, bundle_update, row, user_id, worker_id, connection
+                    bundle, worker_run, row, user_id, worker_id, connection
                 )
             # State isn't one we can check in for
             return False
@@ -1064,6 +1111,8 @@ class BundleModel(object):
         # Set tags
         for value in worksheet_values.values():
             value['tags'] = []
+            if value['title']:
+                value['title'] = self.decode_str(value['title'])
         for row in tag_rows:
             worksheet_values[row.worksheet_uuid]['tags'].append(row.tag)
         if fetch_items:
@@ -1283,7 +1332,8 @@ class BundleModel(object):
             row = str_key_dict(row)
             row['group_permissions'] = uuid_group_permissions[row['uuid']]
             row_dicts.append(row)
-
+            if row['title']:
+                row['title'] = self.decode_str(row['title'])
         return row_dicts
 
     def new_worksheet(self, worksheet):
@@ -1398,6 +1448,8 @@ class BundleModel(object):
             worksheet.frozen = info['frozen']
         if 'owner_id' in info:
             worksheet.owner_id = info['owner_id']
+        if 'title' in info:
+            info['title'] = self.encode_str(info['title'])
         worksheet.validate()
         with self.engine.begin() as connection:
             if 'tags' in info:
