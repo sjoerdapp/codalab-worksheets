@@ -170,34 +170,34 @@ class LocalRunStateMachine(StateTransitioner):
 
         dependencies_ready = True
         status_messages = []
-        bundle_uuid = run_state.bundle['uuid']
 
-        logger.info("dependency checking start time = {}".format(time.time()))
-        # get dependencies
-        for dep in run_state.bundle['dependencies']:
-            dependency = (dep['parent_uuid'], dep['parent_path'])
-            dependency_state = self.dependency_manager.get(bundle_uuid, dependency)
-            if dependency_state.stage == DependencyStage.DOWNLOADING:
-                logger.info('Downloading dependency %s: %s done (archived size)'
-                    % (dep['child_path'], size_str(dependency_state.size_bytes)))
-                status_messages.append(
-                    'Downloading dependency %s: %s done (archived size)'
-                    % (dep['child_path'], size_str(dependency_state.size_bytes))
-                )
-                dependencies_ready = False
-            elif dependency_state.stage == DependencyStage.FAILED:
-                # Failed to download dependency; -> CLEANING_UP
-                run_state.info['failure_message'] = 'Failed to download dependency %s: %s' % (
-                    dep['child_path'],
-                    '',
-                )
-                return run_state._replace(stage=LocalRunStage.CLEANING_UP, info=run_state.info)
+        if not self.shared_file_system:
+            # No need to download dependencies if we're in the shared FS since they're already in our FS
+            for dep_key, dep in run_state.bundle.dependencies.items():
+                dependency_state = self.dependency_manager.get(run_state.bundle.uuid, dep_key)
+                if dependency_state.stage == DependencyStage.DOWNLOADING:
+                    logger.info('Downloading dependency %s: %s done (archived size)'
+                        % (dep.child_path, size_str(dependency_state.size_bytes)))
+                    status_messages.append(
+                        'Downloading dependency %s: %s done (archived size)'
+                        % (dep.child_path, size_str(dependency_state.size_bytes))
+                    )
+                    dependencies_ready = False
+                elif dependency_state.stage == DependencyStage.FAILED:
+                    # Failed to download dependency; -> CLEANING_UP
+                    ret =run_state._replace(
+                        stage=LocalRunStage.CLEANING_UP,
+                        failure_message='Failed to download dependency %s: %s'
+                        % (dep.child_path, dependency_state.message),
+                    )
+                    logger.info("dependency failed end time = {}".format(time.time() - s))
+
+                    return ret
 
         # get the docker image
         docker_image = run_state.resources.docker_image
         image_state = self.docker_image_manager.get(docker_image)
         if image_state.stage == DependencyStage.DOWNLOADING:
-            logger.info('Pulling docker image: {}'.format(docker_image) + (image_state.message or docker_image or ""))
             status_messages.append(
                 'Pulling docker image: ' + (image_state.message or docker_image or "")
             )
@@ -206,9 +206,7 @@ class LocalRunStateMachine(StateTransitioner):
             # Failed to pull image; -> CLEANING_UP
             message = 'Failed to download Docker image: %s' % image_state.message
             logger.error(message)
-            ret = run_state._replace(stage=LocalRunStage.CLEANING_UP, info=run_state.info)
-            logger.info("dependency failed end time = {}".format(time.time()- s))
-            return ret
+            return run_state._replace(stage=LocalRunStage.CLEANING_UP, failure_message=message)
 
         # stop proceeding if dependency and image downloads aren't all done
         if not dependencies_ready:
@@ -217,11 +215,7 @@ class LocalRunStateMachine(StateTransitioner):
                 status_message += "(and downloading %d other dependencies and docker images)" % len(
                     status_messages
                 )
-
-            ret = run_state._replace(run_status=status_message)
-            logger.info("dependency not ready end time = {}".format(time.time()-s))
-
-            return ret
+            return run_state._replace(run_status=status_message)
 
         logger.info("dependency checking succeed takes time = {}".format(time.time()-s))
 
@@ -328,7 +322,6 @@ class LocalRunStateMachine(StateTransitioner):
 
         return ret
 
-
     def _transition_from_RUNNING(self, run_state):
         """
         1- Check run status of the docker container
@@ -336,8 +329,6 @@ class LocalRunStateMachine(StateTransitioner):
         3- If run is finished, move to CLEANING_UP state
         """
         s = time.time()
-
-
         def check_and_report_finished(run_state):
             try:
                 finished, exitcode, failure_msg = docker_utils.check_finished(run_state.container)
@@ -426,6 +417,8 @@ class LocalRunStateMachine(StateTransitioner):
                         logger.error(traceback.format_exc())
             self.disk_utilization[run_state.bundle.uuid]['running'] = False
             self.disk_utilization.remove(run_state.bundle.uuid)
+            logger.info("_transition_from_RUNNING time = {}".format(time.time() - s))
+
             return run_state._replace(stage=LocalRunStage.CLEANING_UP)
         if run_state.finished:
             logger.debug(
@@ -434,18 +427,18 @@ class LocalRunStateMachine(StateTransitioner):
                 run_state.exitcode,
                 run_state.failure_message,
             )
-
             self.disk_utilization[run_state.bundle.uuid]['running'] = False
             self.disk_utilization.remove(run_state.bundle.uuid)
             logger.info("_transition_from_RUNNING time = {}".format(time.time() - s))
-            ret = run_state._replace(
+
+            return run_state._replace(
                 stage=LocalRunStage.CLEANING_UP, run_status='Uploading results'
             )
-            return ret
         else:
-            ret = run_state
-        logger.info("_transition_from_RUNNING time = {}".format(time.time() - s))
-        return ret
+            logger.info("_transition_from_RUNNING time = {}".format(time.time() - s))
+            return run_state
+
+
 
     def _transition_from_CLEANING_UP(self, run_state):
         """
@@ -456,6 +449,7 @@ class LocalRunStateMachine(StateTransitioner):
             move to UPLOADING_RESULTS state
            Otherwise move to FINALIZING state
         """
+        s = time.time()
         if run_state.container_id is not None:
             while docker_utils.container_exists(run_state.container):
                 try:
@@ -486,13 +480,16 @@ class LocalRunStateMachine(StateTransitioner):
 
         if not self.shared_file_system and run_state.has_contents:
             # No need to upload results since results are directly written to bundle store
-            return run_state._replace(
+            ret= run_state._replace(
                 stage=LocalRunStage.UPLOADING_RESULTS,
                 run_status='Uploading results',
                 container=None,
             )
         else:
-            return self.finalize_run(run_state)
+            ret = self.finalize_run(run_state)
+        return ret
+        logger.info("_transition_from_CLEANING_UP time = {}".format(time.time() - s))
+
 
     def _transition_from_UPLOADING_RESULTS(self, run_state):
         """
@@ -506,6 +503,7 @@ class LocalRunStateMachine(StateTransitioner):
             Move to FINALIZING state
         """
         s = time.time()
+
         def upload_results():
             try:
                 # Upload results
@@ -551,9 +549,9 @@ class LocalRunStateMachine(StateTransitioner):
                 )
 
         self.uploading.remove(run_state.bundle.uuid)
-        ret = self.finalize_run(run_state)
         logger.info("_transition_from_UPLOADING_RESULTS time = {}".format(time.time() - s))
 
+        ret = self.finalize_run(run_state)
         return ret
 
 
@@ -570,15 +568,14 @@ class LocalRunStateMachine(StateTransitioner):
         If a full worker cycle has passed since we got into FINALIZING we already reported to
         server so can move on to FINISHED. Can also remove bundle_path now
         """
-
         s = time.time()
+
         if run_state.finalized:
             if not self.shared_file_system:
                 remove_path(run_state.bundle_path)  # don't remove bundle if shared FS
-            ret = run_state._replace(stage=LocalRunStage.FINISHED, run_status='Finished')
-            return ret
+            ret =  run_state._replace(stage=LocalRunStage.FINISHED, run_status='Finished')
         else:
-            ret = run_state
-
-        logger.info("_transition_from_FINALIZING time = {}".format(time.time() - s))
+            ret =  run_state
         return ret
+        logger.info("_transition_from_FINALIZING time = {}".format(time.time() - s))
+
