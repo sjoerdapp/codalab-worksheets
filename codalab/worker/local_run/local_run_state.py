@@ -531,7 +531,7 @@ class LocalRunStateMachine(StateTransitioner):
         )
 
         if self.uploading[run_state.bundle.uuid].is_alive():
-            return run_state._replace(
+            ret = run_state._replace(
                 run_status=self.uploading[run_state.bundle.uuid]['run_status']
             )
         elif not self.uploading[run_state.bundle.uuid]['success']:
@@ -549,9 +549,10 @@ class LocalRunStateMachine(StateTransitioner):
                 )
 
         self.uploading.remove(run_state.bundle.uuid)
-        logger.info("_transition_from_UPLOADING_RESULTS time = {}".format(time.time() - s))
 
         ret = self.finalize_run(run_state)
+
+        logger.info("_transition_from_UPLOADING_RESULTS time = {}".format(time.time() - s))
         return ret
 
 
