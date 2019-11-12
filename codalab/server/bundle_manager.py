@@ -9,7 +9,7 @@ import time
 import traceback
 
 from codalab.objects.permission import check_bundles_have_read_permission
-from codalab.common import PermissionError
+from codalab.common import PermissionError, NotFoundError
 from codalab.lib import bundle_util, formatting, path_util
 from codalab.server.worker_info_accessor import WorkerInfoAccessor
 from codalab.worker.file_util import remove_path
@@ -271,7 +271,11 @@ class BundleManager(object):
             elif self._worker_model.send_json_message(
                 worker['socket_id'], {'type': 'mark_finalized', 'uuid': bundle.uuid}, 0.2
             ):
-                logger.info('Acknowledged finalization of run bundle %s', bundle.uuid)
+                logger.info(
+                    'Acknowledged finalization of run bundle {} on worker {}'.format(
+                        bundle.uuid, worker['worker_id']
+                    )
+                )
                 bundle_location = self._bundle_store.get_bundle_location(bundle.uuid)
                 self._model.transition_bundle_finished(bundle, bundle_location)
 
@@ -327,7 +331,14 @@ class BundleManager(object):
         """
         for worker in workers_list:
             for uuid in worker['run_uuids']:
-                bundle = self._model.get_bundle(uuid)
+                try:
+                    bundle = self._model.get_bundle(uuid)
+                except NotFoundError:
+                    logger.info(
+                        'Bundle %s in WorkerInfoAccessor but no longer found. Skipping for resource deduction.',
+                        uuid,
+                    )
+                    continue
                 bundle_resources = self._compute_bundle_resources(bundle)
                 worker['cpus'] -= bundle_resources.cpus
                 worker['gpus'] -= bundle_resources.gpus
@@ -421,7 +432,9 @@ class BundleManager(object):
             if self._worker_model.send_json_message(
                 worker['socket_id'], self._construct_run_message(worker, bundle), 0.2
             ):
-                logger.info('Starting run bundle %s', bundle.uuid)
+                logger.info(
+                    'Starting run bundle {} on worker {}'.format(bundle.uuid, worker['worker_id'])
+                )
                 return True
             else:
                 self._model.transition_bundle_staged(bundle)
