@@ -320,27 +320,12 @@ class BundleManager(object):
             key=lambda b: (b[0].metadata.request_queue is not None, b[0].metadata.request_queue),
             reverse=True,
         )
-        job_queues = queue.Queue()
-        for bundle, bundle_resources in staged_bundles_to_run:
-            job_queues.put((bundle, bundle_resources))
 
         # Get bundles in RUNNING state from the bundle table
         running_bundles = self._model.batch_get_bundles(state=State.RUNNING)
         # Build a dictionary which maps from uuid to bundle
         uuid_to_running_bundles = {bundle.uuid: bundle for bundle in running_bundles}
-
-        fail_to_dispatch = []
-        for worker in workers:
-            for bundle, bundle_resources in job_queues:
-                if self._validate_worker_resources(worker):
-                    if self._compare_computing_resources(worker, bundle_resources):
-                        if not self._try_start_bundle(workers, worker, bundle):
-                            job_queues.put((bundle, bundle_resources))
-                else:
-                    # current worker is fully loaded
-                    break
-
-        '''
+        workers_list = self._get_available_worker_resources(workers)
         # Dispatch bundles
         for bundle, bundle_resources in staged_bundles_to_run:
             # Get user_owned workers.
@@ -366,12 +351,25 @@ class BundleManager(object):
             for worker in workers_list:
                 if self._try_start_bundle(workers, worker, bundle):
                     break
-        '''
+
     def _validate_worker_resources(self, worker):
         return worker['cpus'] > 0 and worker['gpus'] > 0 and worker['memory_bytes'] > 0
 
     def _compare_computing_resources(self, worker, bundle_resources):
-        return worker['cpus'] >= bundle_resources.cpus and worker['gpus'] >= bundle_resources.gpus and worker['memory_bytes'] >= bundle_resources.memory
+        return (
+            worker['cpus'] >= bundle_resources.cpus
+            and worker['gpus'] >= bundle_resources.gpus
+            and worker['memory_bytes'] >= bundle_resources.memory
+        )
+
+    def _get_available_worker_resources(self, workers_list):
+        for worker in workers_list:
+            running_bundles = self._model.batch_get_bundles(uuid=worker["run_uuids"])
+            cpus_in_use = sum(bundle.metadata.request_cpus for bundle in running_bundles)
+            gpus_in_use = sum(bundle.metadata.request_gpus for bundle in running_bundles)
+            worker["cpus"] = worker["cpus"] - cpus_in_use
+            worker["gpus"] = worker["gpus"] - gpus_in_use
+        return workers_list
 
     def _deduct_worker_resources(self, workers_list, uuid_to_running_bundles):
         """
