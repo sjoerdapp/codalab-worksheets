@@ -17,7 +17,8 @@ from .bundle_service_client import BundleServiceException
 from .download_util import BUNDLE_NO_LONGER_RUNNING_MESSAGE
 from .state_committer import JsonStateCommitter
 from .bundle_state import BundleInfo, RunResources, BundleCheckinState
-from .worker_run_state import RunStateMachine, RunStage, RunState
+from .worker_run_state import RunState, Preparing, Finished
+from .worker_thread import ThreadDict
 from .reader import Reader
 
 logger = logging.getLogger(__name__)
@@ -88,16 +89,13 @@ class Worker:
         self.runs = {}  # bundle_uuid -> RunState
         self.lock = threading.RLock()
         self.init_docker_networks(docker_network_prefix)
-        self.run_state_manager = RunStateMachine(
-            docker_image_manager=self.image_manager,
-            dependency_manager=self.dependency_manager,
-            worker_docker_network=self.worker_docker_network,
-            docker_network_internal=self.docker_network_internal,
-            docker_network_external=self.docker_network_external,
-            docker_runtime=docker_runtime,
-            upload_bundle_callback=self.upload_bundle_contents,
-            assign_cpu_and_gpu_sets_fn=self.assign_cpu_and_gpu_sets,
-            shared_file_system=shared_file_system,
+        # bundle.uuid -> {'thread': Thread, 'run_status': str}
+        self.uploading_threads = ThreadDict(
+            fields={'run_status': 'Upload started', 'success': False}
+        )
+        # bundle.uuid -> {'thread': Thread, 'disk_utilization': int, 'running': bool}
+        self.disk_utilization_threads = ThreadDict(
+            fields={'disk_utilization': 0, 'running': True, 'lock': None}
         )
 
     def init_docker_networks(self, docker_network_prefix):
@@ -121,30 +119,20 @@ class Worker:
 
     def save_state(self):
         # Remove complex container objects from state before serializing, these can be retrieved
-        runs = {
-            uuid: state._replace(
-                container=None, bundle=state.bundle.to_dict(), resources=state.resources.to_dict()
-            )
-            for uuid, state in self.runs.items()
-        }
-        self.state_committer.commit(runs)
+        self.state_committer.commit({uuid: state.to_dict() for uuid, state in self.runs.items()})
 
     def load_state(self):
         runs = self.state_committer.load()
         # Retrieve the complex container objects from the Docker API
         for uuid, run_state in runs.items():
+            run_state = RunState.from_dict(run_state)
             if run_state.container_id:
                 try:
-                    run_state = run_state._replace(
-                        container=self.docker.containers.get(run_state.container_id)
-                    )
+                    run_state.container = self.docker.containers.get(run_state.container_id)
                 except docker.errors.NotFound as ex:
                     logger.debug('Error getting the container for the run: %s', ex)
-                    run_state = run_state._replace(container_id=None)
-            self.runs[uuid] = run_state._replace(
-                bundle=BundleInfo.from_dict(run_state.bundle),
-                resources=RunResources.from_dict(run_state.resources),
-            )
+                    run_state.container_id = None
+            self.runs[uuid] = run_state
 
     def start(self):
         """Return whether we ran anything."""
@@ -164,7 +152,7 @@ class Worker:
                     logger.info('Connected! Successful check in!')
                 self.last_checkin_successful = True
 
-                has_runs = len(self.all_runs) > 0
+                has_runs = len(self.runs) > 0
                 now = time.time()
                 if has_runs:
                     last_time_ran = now
@@ -194,7 +182,10 @@ class Worker:
         self.image_manager.stop()
         if not self.shared_file_system:
             self.dependency_manager.stop()
-        self.run_state_manager.stop()
+        for uuid in self.disk_utilization_threads.keys():
+            self.disk_utilization_threads[uuid]['running'] = False
+        self.disk_utilization_threads.stop()
+        self.uploading_threads.stop()
         self.save_state()
         try:
             self.worker_docker_network.remove()
@@ -224,7 +215,7 @@ class Worker:
                 (dep_key.parent_uuid, dep_key.parent_path) for dep_key in self.all_dependencies
             ],
             'hostname': socket.gethostname(),
-            'runs': [run.to_dict() for run in self.all_runs],
+            'runs': [run.server_checkin_state for run in self.runs.values()],
             'shared_file_system': self.shared_file_system,
         }
         response = self.bundle_service.checkin(self.id, request)
@@ -259,15 +250,13 @@ class Worker:
         with self.lock:
             # transition all runs
             for bundle_uuid in self.runs.keys():
-                run_state = self.runs[bundle_uuid]
-                self.runs[bundle_uuid] = self.run_state_manager.transition(run_state)
+                self.runs[bundle_uuid] = self.runs[bundle_uuid].update(self)
 
             # filter out finished runs
             finished_container_ids = [
-                run.container
+                run.container_id
                 for run in self.runs.values()
-                if (run.stage == RunStage.FINISHED or run.stage == RunStage.FINALIZING)
-                and run.container_id is not None
+                if run.is_active and run.container_id is not None
             ]
             for container_id in finished_container_ids:
                 try:
@@ -275,7 +264,7 @@ class Worker:
                     container.remove(force=True)
                 except (docker.errors.NotFound, docker.errors.NullResource):
                     pass
-            self.runs = {k: v for k, v in self.runs.items() if v.stage != RunStage.FINISHED}
+            self.runs = {k: v for k, v in self.runs.items() if not isinstance(v, Finished)}
 
     def assign_cpu_and_gpu_sets(self, request_cpus, request_gpus):
         """
@@ -296,9 +285,11 @@ class Worker:
 
         with self.lock:
             for run_state in self.runs.values():
-                if run_state.stage == RunStage.RUNNING:
-                    cpuset -= run_state.cpuset
-                    gpuset -= run_state.gpuset
+                if run_state.is_active:
+                    if run_state.cpuset:
+                        cpuset -= run_state.cpuset
+                    if run_state.gpuset:
+                        gpuset -= run_state.gpuset
 
         if len(cpuset) < request_cpus:
             raise Exception(
@@ -323,29 +314,6 @@ class Worker:
         """
         with self.lock:
             return uuid in self.runs
-
-    @property
-    def all_runs(self):
-        """
-        Returns a list of all the runs managed by this RunManager
-        """
-        with self.lock:
-            return [
-                BundleCheckinState(
-                    uuid=run_state.bundle.uuid,
-                    run_status=run_state.run_status,
-                    bundle_start_time=run_state.bundle_start_time,
-                    container_time_total=run_state.container_time_total,
-                    container_time_user=run_state.container_time_user,
-                    container_time_system=run_state.container_time_system,
-                    docker_image=run_state.docker_image,
-                    state=RunStage.WORKER_STATE_TO_SERVER_STATE[run_state.stage],
-                    remote=self.id,
-                    exitcode=run_state.exitcode,
-                    failure_message=run_state.failure_message,
-                )
-                for run_state in self.runs.values()
-            ]
 
     @property
     def all_dependencies(self):
@@ -419,17 +387,17 @@ class Worker:
             if self.stop:
                 # Run Manager stopped, refuse more runs
                 return
-            bundle_path = (
+            local_bundle_path = (
                 bundle.location
                 if self.shared_file_system
                 else os.path.join(self.local_bundles_dir, bundle.uuid)
             )
             now = time.time()
-            run_state = RunState(
-                stage=RunStage.PREPARING,
+            run_state = Preparing(
                 run_status='',
                 bundle=bundle,
-                bundle_path=os.path.realpath(bundle_path),
+                local_bundle_path=os.path.realpath(local_bundle_path),
+                remote=self.id,
                 bundle_dir_wait_num_tries=Worker.BUNDLE_DIR_WAIT_NUM_TRIES,
                 resources=resources,
                 bundle_start_time=now,
