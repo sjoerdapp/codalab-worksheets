@@ -4,7 +4,7 @@ jobs:
       language: python
       python: 3.6
       install: pip install --upgrade black==18.9b0
-      script: black . --check --diff
+      script: ./pre-commit.sh
     - stage: check
       language: javascript
       install: cd frontend && npm install
