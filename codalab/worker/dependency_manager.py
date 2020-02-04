@@ -58,7 +58,7 @@ class DependencyManager(StateTransitioner, BaseDependencyManager):
 
         self._state_committer = JsonStateCommitter(commit_file)
         self._bundle_service = bundle_service
-        self._max_cache_size_bytes = max_cache_size_bytes
+        self._max_cache_size_bytes = 100
         self.dependencies_dir = os.path.join(worker_dir, DependencyManager.DEPENDENCIES_DIR_NAME)
         if not os.path.exists(self.dependencies_dir):
             logger.info('{} doesn\'t exist, creating.'.format(self.dependencies_dir))
@@ -83,8 +83,18 @@ class DependencyManager(StateTransitioner, BaseDependencyManager):
         self._main_thread = None
 
     def _save_state(self):
-        with self._global_lock, self._paths_lock:
-            self._state_committer.commit({'dependencies': self._dependencies, 'paths': self._paths})
+        #with self._global_lock, self._paths_lock:
+        #    self._state_committer.commit({'dependencies': self._dependencies, 'paths': self._paths})
+        logger.info("global_lock: acquire")
+        self._global_lock.acquire()
+        logger.info("path_lock: acquire")
+        self._paths_lock.acquire()
+        self._state_committer.commit({'dependencies': self._dependencies, 'paths': self._paths})
+        logger.info("path_lock: release")
+        self._paths_lock.release()
+        logger.info("global_lock: release")
+        self._global_lock.release()
+        
 
     def _load_state(self):
         """
@@ -194,18 +204,23 @@ class DependencyManager(StateTransitioner, BaseDependencyManager):
         get to retry the download. Without pruning, any future run depending on a
         failed dependency would automatically fail indefinitely.
         """
-        with self._global_lock:
-            self._acquire_all_locks()
-            failed_deps = {
-                dep_key: dep_state
-                for dep_key, dep_state in self._dependencies.items()
-                if dep_state.stage == DependencyStage.FAILED
-                and time.time() - dep_state.last_used
-                > DependencyManager.DEPENDENCY_FAILURE_COOLDOWN
-            }
-            for dep_key, dep_state in failed_deps.items():
-                self._delete_dependency(dep_key)
-            self._release_all_locks()
+        logger.info("[_prune_failed_dependencies] acquire")
+        self._global_lock.acquire()
+        logger.info("[_prune_failed_dependencies] acquired")
+        self._acquire_all_locks()
+        failed_deps = {
+            dep_key: dep_state
+            for dep_key, dep_state in self._dependencies.items()
+            if dep_state.stage == DependencyStage.FAILED
+            and time.time() - dep_state.last_used
+            > DependencyManager.DEPENDENCY_FAILURE_COOLDOWN
+        }
+        for dep_key, dep_state in failed_deps.items():
+            self._delete_dependency(dep_key)
+        self._release_all_locks()
+        self._global_lock.release()
+        logger.info("[_prune_failed_dependencies] released")
+
 
     def _cleanup(self):
         """
@@ -347,17 +362,24 @@ class DependencyManager(StateTransitioner, BaseDependencyManager):
         """
         Acquires all dependency locks in the thread it's called from
         """
-        with self._global_lock:
-            for dependency, lock in self._dependency_locks.items():
-                lock.acquire()
+        logger.info("[_acquire_all_locks] acquire")
+        self._global_lock.acquire()
+        for dependency, lock in self._dependency_locks.items():
+            lock.acquire()
+        logger.info("[_acquire_all_locks] release")
+        self._global_lock.release()
 
     def _release_all_locks(self):
         """
         Releases all dependency locks in the thread it's called from
         """
-        with self._global_lock:
-            for dependency, lock in self._dependency_locks.items():
-                lock.release()
+        logger.info("[_release_all_locks] acquire")
+
+        self._global_lock.acquire()
+        for dependency, lock in self._dependency_locks.items():
+            lock.release()
+        logger.info("[_release_all_locks] release")
+        self._global_lock.release()
 
     def _assign_path(self, dependency_key):
         """
@@ -403,8 +425,14 @@ class DependencyManager(StateTransitioner, BaseDependencyManager):
 
     @property
     def all_dependencies(self):
-        with self._global_lock:
-            return list(self._dependencies.keys())
+        #with self._global_lock:
+        #    return list(self._dependencies.keys())
+        logger.info("[all_dependencies] acquire")
+        self._global_lock.acquire()
+        ret = list(self._dependencies.keys())
+        logger.info("[all_dependencies] release")
+        self._global_lock.release()
+        return ret
 
     def _transition_from_DOWNLOADING(self, dependency_state):
         def download():

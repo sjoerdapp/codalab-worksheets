@@ -166,9 +166,13 @@ class Worker:
             self.dependency_manager.start()
         while not self.stop:
             try:
+                logger.info("process_runs")
                 self.process_runs()
+                logger.info("save_state1")
                 self.save_state()
+                logger.info("checkin")
                 self.checkin()
+                logger.info("save_state2")
                 self.save_state()
                 if not self.last_checkin_successful:
                     logger.info('Connected! Successful check in!')
