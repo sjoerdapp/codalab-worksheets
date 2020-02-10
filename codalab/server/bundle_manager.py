@@ -89,8 +89,10 @@ class BundleManager(object):
             return self._exiting
 
     def _run_iteration(self):
+        logger.info("stage bundles")
         self._stage_bundles()
         self._make_bundles()
+        logger.info("schedule run bundles")
         self._schedule_run_bundles()
         self._fail_unresponsive_bundles()
 
@@ -240,7 +242,9 @@ class BundleManager(object):
         Clean-up workers that we haven't heard from for more than WORKER_TIMEOUT_SECONDS seconds.
         Such workers probably died without checking out properly.
         """
-        for worker in workers.workers():
+        workers_list = workers.workers()
+        logger.info("[CLEANUP] Workers: %s", workers_list)
+        for worker in workers_list:
             if datetime.datetime.utcnow() - worker['checkin_time'] > datetime.timedelta(
                 seconds=WORKER_TIMEOUT_SECONDS
             ):
@@ -255,6 +259,7 @@ class BundleManager(object):
         Moves bundles that got stuck in the STARTING state back to the STAGED
         state so that they can be scheduled to run again.
         """
+        logger.info("[RESTAGE]")
         for bundle in self._model.batch_get_bundles(state=State.STARTING, bundle_type='run'):
             if (
                 not workers.is_running(bundle.uuid)
@@ -268,6 +273,7 @@ class BundleManager(object):
         """
         Acknowledge recently finished bundles to workers so they can discard run information.
         """
+        logger.info("[CHECK FINISHED]")
         for bundle in self._model.batch_get_bundles(state=State.FINALIZING, bundle_type='run'):
             worker = self._model.get_bundle_worker(bundle.uuid)
             if worker is None:
@@ -296,6 +302,7 @@ class BundleManager(object):
             state=State.RUNNING, bundle_type='run'
         ) + self._model.batch_get_bundles(state=State.PREPARING, bundle_type='run')
         now = time.time()
+        logger.info("[BRING OFFLINE] num bundles: %d", len(active_bundles))
         for bundle in active_bundles:
             failure_message = None
             if not workers.is_running(bundle.uuid):
@@ -317,16 +324,22 @@ class BundleManager(object):
         """
         # Reorder the stage_bundles so that bundles which were requested to run on a personal worker
         # will be scheduled to run first
+        logger.info("[SCHEDULE ON WORKERS]")
         staged_bundles_to_run.sort(
             key=lambda b: (b[0].metadata.request_queue is not None, b[0].metadata.request_queue),
             reverse=True,
         )
+        logger.info("[SCHEDULE ON WORKERS] Num staged bundles: %d", len(staged_bundles_to_run))
 
         # Build a dictionary which maps from uuid to running bundle and bundle_resources
         running_bundles_info = self._get_running_bundles_info(workers)
+        logger.info(
+            "[SCHEDULE ON WORKERS] Num cached running bundles: %d", len(running_bundles_info)
+        )
 
         # Dispatch bundles
         for bundle, bundle_resources in staged_bundles_to_run:
+            logger.info("[SCHEDULE ON WORKERS] [%s]", bundle.uuid)
 
             def get_available_workers(user_id):
                 # Make a deepcopy of the workers list so the filtering and deducting don't modify the list
@@ -359,6 +372,9 @@ class BundleManager(object):
 
             # Try starting bundles on the workers that have enough computing resources
             for worker in workers_list:
+                logger.info(
+                    "[SCHEDULE ON WORKERS] [%s] worker found: %s", bundle.uuid, worker['worker_id']
+                )
                 if self._try_start_bundle(workers, worker, bundle, bundle_resources):
                     break
 
@@ -366,6 +382,7 @@ class BundleManager(object):
         """
         From each worker, subtract resources used by running bundles. Modifies the list.
         """
+        logger.info("[DEDUCT RESOURCES] num workers: %d", len(workers_list))
 
         for worker in workers_list:
             for uuid in worker['run_uuids']:
@@ -393,6 +410,7 @@ class BundleManager(object):
         Filters the workers to those that can run the given bundle and returns
         the list sorted in order of preference for running the bundle.
         """
+        logger.info("[FILTER WORKERS] num workers: %d", len(workers_list))
         # keep track of which workers have GPUs
         has_gpu = {}
         for worker in workers_list:
@@ -454,6 +472,7 @@ class BundleManager(object):
 
         workers_list.sort(key=get_sort_key, reverse=True)
 
+        logger.info("[FILTER WORKERS] num workers end: %d", len(workers_list))
         return workers_list
 
     def _try_start_bundle(self, workers, worker, bundle, bundle_resources):
@@ -630,7 +649,10 @@ class BundleManager(object):
         READY / FAILED, no worker_run DB entry:
             Finished.
         """
+        logger.info("[SCHEDULE BUNDLES]")
         workers = WorkerInfoAccessor(self._worker_model, WORKER_TIMEOUT_SECONDS - 5)
+        workers_list = workers.workers()
+        logger.info("[SCHEDULE BUNDLES]: fresh workers: %s", workers_list)
 
         # Handle some exceptional cases.
         self._cleanup_dead_workers(workers)
