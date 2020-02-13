@@ -1,7 +1,7 @@
 bottle==0.12.9
 docker==3.7.0
 marshmallow-jsonapi==0.15.1
-marshmallow==2.13.0
+-e git+https://github.com/marshmallow-code/marshmallow.git@50d097d38753328a7814339966cd7fc9740fd2ad#egg=marshmallow
 setuptools>=40.0.0
 argcomplete==1.9.4
 PyYAML==5.1
