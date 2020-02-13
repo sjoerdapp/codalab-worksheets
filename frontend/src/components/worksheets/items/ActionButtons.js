@@ -6,12 +6,27 @@ import RunIcon from '@material-ui/icons/PlayCircleOutline';
 import UploadIcon from '@material-ui/icons/CloudUploadOutlined';
 import AddIcon from '@material-ui/icons/AddBoxOutlined';
 import BundleBulkActionMenu from '../BundleBulkActionMenu';
-
+import Menu from '@material-ui/core/Menu';
+import MenuItem from '@material-ui/core/MenuItem';
 class ActionButtons extends React.Component<{
     classes: {},
     onShowNewRun: () => void,
     onShowNewText: () => void,
 }> {
+    constructor(props) {
+        super(props);
+        this.state = {
+            anchorEl: null,
+        };
+    }
+    handleClick = event => {
+        this.setState({anchorEl: event.currentTarget});
+    };
+
+    handleClose = () => {
+    this.setState({anchorEl: null});
+    };
+
     render() {
         const {
             classes,
@@ -44,11 +59,13 @@ class ActionButtons extends React.Component<{
                     </Button>
                 ) : null}
                 {!showBundleOperationButtons ? (
-                    <Button
+                    <span>
+                        <Button
                         size='small'
                         color='inherit'
                         aria-label='Add New Upload'
                         className={classes.uploadButton}
+                        // onClick={this.handleClick}
                         disabled={!editPermission}
                     >
                         <label className={classes.uploadLabel} for='codalab-file-upload-input'>
@@ -56,6 +73,16 @@ class ActionButtons extends React.Component<{
                             Upload
                         </label>
                     </Button>
+                    {/* <Menu
+                        id="simple-menu"
+                        anchorEl={this.state.anchorEl}
+                        keepMounted
+                        open={Boolean(this.state.anchorEl)}
+                        onClose={this.handleClose}>
+                    <MenuItem onClick={this.handleClose}>File(s) Upload</MenuItem>
+                    <MenuItem onClick={this.handleClose}>Folder Upload</MenuItem>
+                    </Menu> */}
+                    </span>
                 ) : null}
                 {!showBundleOperationButtons ? (
                     <Button

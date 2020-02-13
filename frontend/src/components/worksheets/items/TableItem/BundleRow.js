@@ -24,7 +24,7 @@ class BundleRow extends Component {
         super(props);
         this.state = {
             showDetail: false,
-            showNewUpload: 0,
+            // showNewUpload: 0,
             showNewRun: 0,
             bundleInfoUpdates: {},
             openDelete: false,
@@ -86,9 +86,9 @@ class BundleRow extends Component {
         this.props.updateRowIndex(this.props.rowIndex);
     };
 
-    showNewUpload = (val) => () => {
-        this.setState({ showNewUpload: val });
-    };
+    // showNewUpload = (val) => () => {
+    //     this.setState({ showNewUpload: val });
+    // };
 
     showNewRun = (val) => () => {
         this.setState({ showNewRun: val });
