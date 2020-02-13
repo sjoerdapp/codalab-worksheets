@@ -189,6 +189,7 @@ services:
     networks:
       - service
       - worker
+    shm_size: '500mb'
 
   monitor:
     image: codalab/server:${CODALAB_VERSION}
