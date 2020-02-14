@@ -1698,6 +1698,7 @@ def test(ctx):
     response = ctx.client.fetch_interpreted_worksheet(wuuid)
     check_equals(response['uuid'], wuuid)
 
+
 @TestModule.register('Tony')
 def test(ctx):
     print('Tony testing...')
