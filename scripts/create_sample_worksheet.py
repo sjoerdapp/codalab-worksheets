@@ -43,22 +43,22 @@ class SampleWorksheet:
     _IMAGE_REGEX = '\[Image\]'
     _GRAPH_REGEX = '\[Graph\]'
 
-    def __init__(self, cl, args):
+    def __init__(self, cl, test_mode=True, large=False, preview_mode = False):
         # For simplicity, reference a set number of entities for each section of the small and large worksheet.
-        if args.large:
+        if large:
             self._description = 'large'
             self._entities_count = 100
         else:
             self._description = 'small'
             self._entities_count = 3
         self._cl = cl
-        self._preview_mode = args.preview
+        self._preview_mode = preview_mode
         self._worksheet_name = 'cl_{}_worksheet'.format(self._description)
         self._content = []
 
         # For testing, _expected_line holds the expected regex pattern for each line of the worksheet
         self._expected_lines = []
-        self._test_mode = args.test
+        self._test_mode = test_mode
 
     def create(self):
         print('Creating a {} worksheet...'.format(self._description))
@@ -522,7 +522,7 @@ def main():
         cleanup(cl, SampleWorksheet.TAG)
         return
     print(args)
-    ws = SampleWorksheet(cl, args)
+    ws = SampleWorksheet(cl, args.test, args.large, args.preview)
     start_time = time.time()
     ws.create()
     duration_seconds = time.time() - start_time
