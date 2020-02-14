@@ -43,7 +43,7 @@ class SampleWorksheet:
     _IMAGE_REGEX = '\[Image\]'
     _GRAPH_REGEX = '\[Graph\]'
 
-    def __init__(self, cl, test_mode=True, large=False, preview_mode = False):
+    def __init__(self, cl, test_mode=True, large=False, preview_mode=False):
         # For simplicity, reference a set number of entities for each section of the small and large worksheet.
         if large:
             self._description = 'large'

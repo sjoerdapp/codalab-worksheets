@@ -3,8 +3,7 @@ jobs:
     - stage: check
       language: python
       python: 3.6
-      install:
-        - pip install --upgrade black==18.9b0
+      install: pip install --upgrade black==18.9b0
       script: black . --check --diff
     - stage: check
       language: javascript
@@ -25,6 +24,7 @@ jobs:
         - chmod +x docker-compose
         - sudo mv docker-compose /usr/local/bin
         - sudo service mysql stop
+        - chmod -R u=rw,go=r .
       install:
         - python3 codalab_service.py build services --version ${TRAVIS_BRANCH} --pull $([ -z "${CODALAB_DOCKER_USERNAME}" ] || [ "$TRAVIS_PULL_REQUEST_BRANCH" != "" ] || echo "--push")
         - python3 codalab_service.py start --services default monitor --version ${TRAVIS_BRANCH}
