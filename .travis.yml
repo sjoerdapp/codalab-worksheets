@@ -5,7 +5,6 @@ jobs:
       python: 3.6
       install:
         - pip install --upgrade black==18.9b0
-        - pip install codalab
       script: black . --check --diff
     - stage: check
       language: javascript

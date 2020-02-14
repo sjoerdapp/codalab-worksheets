@@ -5,7 +5,7 @@ import re
 import string
 import time
 
-from test_util import cleanup, run_command
+from scripts.test_util import cleanup, run_command
 
 """
 Script to create small and large sample worksheets in any instance to stress test the front end. The purpose of 
@@ -337,7 +337,7 @@ class SampleWorksheet:
         self._add_description('Search for total disk usage')
         self._add_line('Total Disk Usage:')
         self._add_line('% search size=.sum .format=size')
-        self._expected_lines.extend(['Total Disk Usage:TONY', SampleWorksheet._SIZE_REGEX])
+        self._expected_lines.extend(['Total Disk Usage:', SampleWorksheet._SIZE_REGEX])
 
         self._add_description('Search for my bundles')
         self._add_line('% search .mine .limit={}'.format(self._entities_count))
@@ -376,7 +376,7 @@ class SampleWorksheet:
     def _add_rendering_logic(self):
         self._add_header('Rendering')
         self._add_subheader('Markdown')
-        self._add_line('Emphasis, aka italics, with *asterisks* or _underscores_.TONY', True)
+        self._add_line('Emphasis, aka italics, with *asterisks* or _underscores_.', True)
         self._add_line('Strong emphasis, aka bold, with **asterisks** or __underscores__.', True)
         self._add_line('Combined emphasis with **asterisks and _underscores_**.', True)
         self._add_line('Strikethrough uses two tildes. ~~Scratch this.~~', True)
