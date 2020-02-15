@@ -65,7 +65,7 @@ class SampleWorksheet:
         self._create_dependencies()
         self._add_introduction()
         self._add_worksheet_references()
-        # self._add_bundle_references()
+        self._add_bundle_references()
         # self._add_schemas()
         # self._add_display_modes()
         # self._add_search()
