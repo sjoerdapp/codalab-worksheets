@@ -70,7 +70,7 @@ class SampleWorksheet:
         self._add_display_modes()
         self._add_search()
         self._add_invalid_directives()
-        # self._add_rendering_logic()
+        self._add_rendering_logic()
         self._create_sample_worksheet()
         self._test_worksheet()
         print('Done.')
