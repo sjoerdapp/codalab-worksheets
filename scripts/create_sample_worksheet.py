@@ -17,7 +17,7 @@ version of the small worksheet and its purpose is to push the limit and stress t
 class SampleWorksheet:
     TAG = 'codalab-sample-worksheet'
 
-    _FILE_NAME = 'sample-worksheet-temp.txt'
+    _WORKSHEET_FILE_PATH = '/tmp/sample-worksheet-temp.txt'
     _TEX_AND_MATH = (
         'The loss minimization framework is to cast learning as an optimization problem. We are estimating (fitting or '
         'learning) $\mathbf w$ using $ \mathcal{D}_\\text{train}$. A loss function $ \\text{Loss}(x, y, \mathbf w) $ '
@@ -144,8 +144,7 @@ class SampleWorksheet:
 
     def _create_sample_worksheet(self):
         # Write out the contents to a temporary file
-        os.umask(0)
-        with open(os.open(SampleWorksheet._FILE_NAME, os.O_CREAT | os.O_WRONLY, 0o777), 'w') as file:
+        with open(SampleWorksheet._WORKSHEET_FILE_PATH, 'w') as file:
             file.write('\n'.join(self._content))
 
         # Create the main worksheet used for stress testing the frontend
@@ -153,9 +152,9 @@ class SampleWorksheet:
         self._create_tagged_worksheet(self._worksheet_name, title)
 
         # Replace the content of the current worksheet with the temporary file's content. Delete the temp file after.
-        run_command([self._cl, 'wedit', '--file=' + SampleWorksheet._FILE_NAME])
-        os.remove(SampleWorksheet._FILE_NAME)
-        print('Deleted file {}.'.format(SampleWorksheet._FILE_NAME))
+        run_command([self._cl, 'wedit', '--file=' + SampleWorksheet._WORKSHEET_FILE_PATH])
+        os.remove(SampleWorksheet._WORKSHEET_FILE_PATH)
+        print('Deleted worksheet file at {}.'.format(SampleWorksheet._WORKSHEET_FILE_PATH))
 
     def _add_introduction(self):
         self._expected_lines.append(
