@@ -144,7 +144,8 @@ class SampleWorksheet:
 
     def _create_sample_worksheet(self):
         # Write out the contents to a temporary file
-        with open(SampleWorksheet._FILE_NAME, 'w+') as file:
+        os.umask(0)
+        with open(os.open(SampleWorksheet._FILE_NAME, os.O_CREAT | os.O_WRONLY, 0o777), 'w') as file:
             file.write('\n'.join(self._content))
 
         # Create the main worksheet used for stress testing the frontend
