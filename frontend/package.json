@@ -58,7 +58,7 @@
   "scripts": {
     "start": "PORT=2700 react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test",
+    "test": "jest",
     "flow": "flow",
     "eject": "react-scripts eject",
     "check-ci": "eslint src && prettier --config ./.prettierrc --check 'src/**/*.js'"
