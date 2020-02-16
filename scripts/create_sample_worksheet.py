@@ -142,6 +142,11 @@ class SampleWorksheet:
             run_command([self._cl, 'perm', uuid, 'public', 'none'])
             self._private_bundles.append(uuid)
 
+            # Create failed bundles for search
+            run_command(
+                [self._cl, 'run', 'exit code 1', '--tags=%s' % SampleWorksheet.TAG]
+            )
+
     def _create_sample_worksheet(self):
         # Write out the contents to a temporary file
         with open(SampleWorksheet._WORKSHEET_FILE_PATH, 'w') as file:
@@ -322,7 +327,7 @@ class SampleWorksheet:
     def _add_search(self):
         self._add_header('Search')
         self._add_subheader('Bundle Search')
-        self._add_line('% search python run .limit={}'.format(self._entities_count))
+        self._add_line('% search echo run .limit={}'.format(self._entities_count))
         self._add_default_table_pattern(self._entities_count)
 
         self._add_subheader('Partial UUID Matching')
@@ -330,7 +335,7 @@ class SampleWorksheet:
         self._add_default_table_pattern(self._entities_count)
 
         self._add_subheader('Worksheet Search')
-        self._add_line('% wsearch test .limit={}'.format(self._entities_count))
+        self._add_line('% wsearch worksheet .limit={}'.format(self._entities_count))
         self._add_worksheets_pattern(self._entities_count)
 
         self._add_subheader('More Examples')
@@ -351,8 +356,8 @@ class SampleWorksheet:
         self._add_line('% search state=failed .limit={} id=.sort-'.format(self._entities_count))
         self._add_default_table_pattern(self._entities_count)
 
-        self._add_description('Search for datasets (worksheets with tag "data")')
-        self._add_line('% wsearch tag=data id=.sort- .limit={}'.format(self._entities_count))
+        self._add_description('Search for datasets (worksheets with tag {})'.format(SampleWorksheet.TAG))
+        self._add_line('% wsearch tag={} id=.sort- .limit={}'.format(SampleWorksheet.TAG, self._entities_count))
         self._add_worksheets_pattern(self._entities_count)
 
         self._add_description('Search for recently created bundles')
