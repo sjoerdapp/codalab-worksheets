@@ -142,10 +142,6 @@ class SampleWorksheet:
             run_command([self._cl, 'perm', uuid, 'public', 'none'])
             self._private_bundles.append(uuid)
 
-            # Create failed bundles for search
-            failed_bundle = run_command([self._cl, 'run', 'exit 1', '--tags=%s' % SampleWorksheet.TAG])
-            run_command([self._cl, 'wait', failed_bundle])
-
     def _create_sample_worksheet(self):
         # Write out the contents to a temporary file
         with open(SampleWorksheet._WORKSHEET_FILE_PATH, 'w') as file:
@@ -351,8 +347,8 @@ class SampleWorksheet:
         self._add_line('% search size=.sort- .limit={}'.format(self._entities_count))
         self._add_default_table_pattern(self._entities_count)
 
-        self._add_description('Search for recently failed runs')
-        self._add_line('% search state=failed .limit={} id=.sort-'.format(self._entities_count))
+        self._add_description('Search for recently ready runs')
+        self._add_line('% search state=ready .limit={} id=.sort-'.format(self._entities_count))
         self._add_default_table_pattern(self._entities_count)
 
         self._add_description('Search for worksheets (tag: {})'.format(SampleWorksheet.TAG))
