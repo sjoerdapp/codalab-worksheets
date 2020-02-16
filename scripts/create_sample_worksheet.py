@@ -144,7 +144,7 @@ class SampleWorksheet:
 
             # Create failed bundles for search
             run_command(
-                [self._cl, 'run', 'exit code 1', '--tags=%s' % SampleWorksheet.TAG]
+                [self._cl, 'run', 'exit 1', '--tags=%s' % SampleWorksheet.TAG]
             )
 
     def _create_sample_worksheet(self):
