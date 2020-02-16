@@ -68,7 +68,7 @@ class SampleWorksheet:
         self._add_bundle_references()
         self._add_schemas()
         #self._add_display_modes()
-        self._add_search()
+        #self._add_search()
         self._add_invalid_directives()
         self._add_rendering_logic()
         self._create_sample_worksheet()
