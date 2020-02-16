@@ -67,7 +67,7 @@ class SampleWorksheet:
         self._add_worksheet_references()
         self._add_bundle_references()
         self._add_schemas()
-        #self._add_display_modes()
+        self._add_display_modes()
         #self._add_search()
         self._add_invalid_directives()
         self._add_rendering_logic()
@@ -282,13 +282,13 @@ class SampleWorksheet:
 
     def _add_display_modes(self):
         self._add_header('Display Modes')
-        self._add_subheader('Table')
-        self._add_line('% display table valid_schema')
-        self._add_bundles(self._valid_bundles)
-        self._add_table_pattern(
-            ['uuid', 'name', 'summary', 'metadata', 'permission', 'group_permissions'],
-            len(self._valid_bundles),
-        )
+        # self._add_subheader('Table')
+        # self._add_line('% display table valid_schema')
+        # self._add_bundles(self._valid_bundles)
+        # self._add_table_pattern(
+        #     ['uuid', 'name', 'summary', 'metadata', 'permission', 'group_permissions'],
+        #     len(self._valid_bundles),
+        # )
 
         self._add_subheader('Image')
         for uuid in self._search_bundles('.png'):
