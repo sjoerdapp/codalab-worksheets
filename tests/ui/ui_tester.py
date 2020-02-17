@@ -1,0 +1,119 @@
+import os
+import time
+
+from abc import ABC, abstractmethod
+from diffimg import diff
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
+
+
+class UITester(ABC):
+    _BASE_PATH = base_path = os.path.dirname(os.path.abspath(__file__))
+    _IMG_DIFF_THRESHOLD_PERCENT = 1
+
+    def __init__(self, test_name, driver, base_url, password='codalab'):
+        self._test_name = test_name
+        self._driver = driver
+        self._base_url = base_url
+        self._password = password
+
+    @abstractmethod
+    def run(self):
+        pass
+
+    def close(self):
+        self._driver.close()
+
+    def login(self):
+        self._driver.get(self.get_url('/home'))
+        self.click_link('LOGIN')
+        self.fill_field('id_login', 'codalab')
+        password_field = self.fill_field('id_password', self._password)
+        password_field.send_keys(Keys.ENTER)
+
+    def save_screenshot(self, path, filename):
+        self._driver.save_screenshot(os.path.join(path, filename))
+
+    def click_link(self, selector):
+        link = self._driver.find_element_by_link_text(selector)
+        link.click()
+
+    def fill_field(self, selector, text):
+        textbox = self._driver.find_element_by_id(selector)
+        textbox.send_keys(text)
+        return textbox
+
+    def wait_until_worksheet_loads(self):
+        self.wait_until_page_loads('ws-item')
+
+    def wait_until_page_loads(self, selector, by=By.CLASS_NAME):
+        timeout_message = 'Timed out while waiting for {}: {}.'.format(by, selector)
+        return WebDriverWait(self._driver, 15).until(
+            EC.presence_of_element_located((by, selector)), message=timeout_message
+        )
+
+    def switch_to_new_tab(self):
+        # Just give enough time for the new tab to get opened
+        time.sleep(1)
+        self._driver.switch_to_window(
+            self._driver.window_handles[len(self._driver.window_handles) - 1]
+        )
+
+    def output_images(self, selector, num_of_screenshots=10):
+        output_dir = self._get_output_dir('out')
+        element = "document.getElementById('{}')".format(selector)
+        # Scroll to the bottom and wait for tex and other worksheet components to render
+        self._driver.execute_script('{}.scrollTo(0, {})'.format(element, 9999))
+        time.sleep(20)
+        scroll_height = float(self._driver.execute_script('return {}.scrollHeight'.format(element)))
+        for i in range(num_of_screenshots):
+            y = (i / num_of_screenshots) * scroll_height
+            self._driver.execute_script('{}.scrollTo(0, {})'.format(element, y))
+            self.save_screenshot(output_dir, '{}{}.png'.format(self._test_name, i + 1))
+
+    def compare_to_baselines(self, num_of_screenshots=10):
+        out_dir = self._get_output_dir('out')
+        baselines_dir = self._get_output_dir('baselines')
+        diff_dir = self._get_output_dir('diff')
+        has_failed = False
+        for i in range(num_of_screenshots):
+            screenshot_filename = '{}{}.png'.format(self._test_name, i + 1)
+            out_img = os.path.join(out_dir, screenshot_filename)
+            baseline_img = os.path.join(baselines_dir, screenshot_filename)
+            diff_img = os.path.join(diff_dir, screenshot_filename)
+            diff_percent = (
+                diff(baseline_img, out_img, delete_diff_file=True, ignore_alpha=True) * 100
+            )
+            if diff_percent > UITester._IMG_DIFF_THRESHOLD_PERCENT:
+                # If an image comparison has failed, generate diff and print an error message in red
+                has_failed = True
+                diff(
+                    out_img,
+                    baseline_img,
+                    delete_diff_file=False,
+                    diff_img_file=diff_img,
+                    ignore_alpha=True,
+                )
+                print(
+                    '\033[91mScreenshot comparison failed for {} by {}%\033[0m'.format(
+                        screenshot_filename, diff_percent
+                    )
+                )
+
+        assert not has_failed
+
+    def get_url(self, path):
+        return '{}/{}'.format(self._base_url, path)
+
+    def _get_output_dir(self, folder_name):
+        def create_path(path):
+            if not os.path.isdir(path):
+                os.mkdir(path)
+
+        output_dir = os.path.join(UITester._BASE_PATH, folder_name)
+        create_path(output_dir)
+        output_dir = os.path.join(output_dir, self._test_name)
+        create_path(output_dir)
+        return output_dir
