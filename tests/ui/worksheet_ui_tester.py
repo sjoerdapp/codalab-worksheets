@@ -21,6 +21,6 @@ class WorksheetUITester(UITester):
 # TEST
 driver = webdriver.Chrome()
 worksheet_tester = WorksheetUITester(
-    driver, 'https://worksheets-dev.codalab.org', 'mn:EDQ,Dt6s8s3KE'
+    driver, 'https://worksheets-dev.codalab.org', ''
 )
 worksheet_tester.run()
