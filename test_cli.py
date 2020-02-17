@@ -1703,8 +1703,9 @@ def test(ctx):
 def test(ctx):
     print('Tony testing...')
     # Comprehensive worksheet tests
-    ws = SampleWorksheet(cl, test_mode=True)
+    ws = SampleWorksheet(cl)
     ws.create()
+    ws.validate_content()
 
 
 if __name__ == '__main__':

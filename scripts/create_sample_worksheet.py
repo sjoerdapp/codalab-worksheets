@@ -43,7 +43,7 @@ class SampleWorksheet:
     _IMAGE_REGEX = '\[Image\]'
     _GRAPH_REGEX = '\[Graph\]'
 
-    def __init__(self, cl, test_mode=False, large=False, preview_mode=False):
+    def __init__(self, cl, large=False, preview_mode=False):
         # For simplicity, reference a set number of entities for each section of the small and large worksheet.
         if large:
             self._description = 'large'
@@ -58,7 +58,6 @@ class SampleWorksheet:
 
         # For testing, _expected_line holds the expected regex pattern for each line of the worksheet
         self._expected_lines = []
-        self._test_mode = test_mode
 
     def create(self):
         print('Creating a {} worksheet...'.format(self._description))
@@ -72,20 +71,15 @@ class SampleWorksheet:
         self._add_invalid_directives()
         self._add_rendering_logic()
         self._create_sample_worksheet()
-        self._test_worksheet()
         print('Done.')
 
-    def _test_worksheet(self):
-        # Only test the output of the created worksheet if in test mode
-        if not self._test_mode:
-            return
-
-        has_error = False
+    def validate_content(self):
         output_lines = run_command([self._cl, 'print', self._worksheet_name]).split('\n')
+        has_error = False
         for i in range(len(self._expected_lines)):
             if not re.match(self._expected_lines[i], output_lines[i]):
                 has_error = True
-                # Output mismatch in red
+                # Output mismatch message in red
                 print(
                     '\033[91mMISMATCH! line: {} pattern: {} output: {}\033[0m'.format(
                         i + 1, self._expected_lines[i], output_lines[i]
@@ -93,6 +87,8 @@ class SampleWorksheet:
                 )
 
         assert not has_error
+        print('Finished validating content of the sample worksheet...')
+        print('Success.')
 
     def _create_dependencies(self):
         if self._preview_mode:
@@ -527,9 +523,12 @@ def main():
         cleanup(cl, SampleWorksheet.TAG)
         return
     print(args)
-    ws = SampleWorksheet(cl, args.test, args.large, args.preview)
+
+    ws = SampleWorksheet(cl, args.large, args.preview)
     start_time = time.time()
     ws.create()
+    if args.test:
+        ws.validate_content()
     duration_seconds = time.time() - start_time
     print("--- Completion Time: {} minutes---".format(duration_seconds / 60))
 
