@@ -1701,7 +1701,6 @@ def test(ctx):
 
 @TestModule.register('Tony')
 def test(ctx):
-    print('Tony testing...')
     # Comprehensive worksheet tests
     ws = SampleWorksheet(cl)
     ws.create()

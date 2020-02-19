@@ -1,5 +1,5 @@
 from selenium import webdriver
-from ui_tester import UITester
+from tests.ui.ui_tester import UITester
 
 import chromedriver_binary
 
@@ -23,7 +23,5 @@ driver = webdriver.Chrome()
 # worksheet_tester = WorksheetUITester(
 #     driver, 'https://worksheets-dev.codalab.org', 'codalab'
 # )
-worksheet_tester = WorksheetUITester(
-    driver, 'http://localhost', 'codalab'
-)
+worksheet_tester = WorksheetUITester(driver, 'http://localhost', 'codalab')
 worksheet_tester.run()
