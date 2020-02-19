@@ -643,6 +643,8 @@ def _update_bundle_contents_blob(uuid):
     - `state_on_success`: (optional) Update the bundle state to this state if
       the upload completes successfully. Must be either 'ready' or 'failed'.
       Default is 'ready'.
+    - `is_dir`: (optional) 1 if the user updates directories through web UI,
+      or 0 otherwise. Default is 'False'.
     """
     check_bundles_have_all_permission(local.model, request.user, [uuid])
     bundle = local.model.get_bundle(uuid)
