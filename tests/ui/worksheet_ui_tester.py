@@ -1,8 +1,6 @@
 from selenium import webdriver
 from tests.ui.ui_tester import UITester
 
-import chromedriver_binary
-
 
 class WorksheetUITester(UITester):
     def __init__(self, driver, base_url, password):
@@ -20,9 +18,6 @@ class WorksheetUITester(UITester):
 
 # TEST
 driver = webdriver.Chrome()
-# worksheet_tester = WorksheetUITester(
-#     driver, 'https://worksheets-dev.codalab.org', 'codalab'
-# )
 worksheet_tester = WorksheetUITester(driver, 'http://localhost', 'codalab')
 worksheet_tester.run()
 
