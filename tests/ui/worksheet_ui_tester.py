@@ -23,9 +23,9 @@ worksheet_tester = WorksheetUITester(driver, 'http://localhost', 'codalab')
 worksheet_tester.run()
 '''
 
-ff_profile_dir = "/usr/local/selenium/webdriver/firefox"
-ff_profile = webdriver.FirefoxProfile(profile_directory=ff_profile_dir)
-driver = webdriver.Firefox(ff_profile)
+# ff_profile_dir = "/usr/local/selenium/webdriver/firefox"
+# ff_profile = webdriver.FirefoxProfile(profile_directory=ff_profile_dir)
+driver = webdriver.Firefox()
 # worksheet_tester = WorksheetUITester(
 #     driver, 'https://worksheets-dev.codalab.org', 'codalab'
 # )
