@@ -36,8 +36,6 @@ jobs:
         - python3 codalab_service.py build services --version ${TRAVIS_BRANCH} --pull $([ -z "${CODALAB_DOCKER_USERNAME}" ] || [ "$TRAVIS_PULL_REQUEST_BRANCH" != "" ] || echo "--push")
         - python3 codalab_service.py start --services default monitor --version ${TRAVIS_BRANCH}
       before_script:
-        - echo "Extracting firefox and setting PATH variable..."
-        - tar -xjf /tmp/firefox-43.0.tar.bz2 --directory /tmp
         - export PATH="/tmp/firefox:$PATH"
         - echo "Using firefox version `firefox --version`
       script:
