@@ -3,7 +3,9 @@ jobs:
     - stage: check
       language: python
       python: 3.6
-      install: pip install --upgrade black==18.9b0
+      install:
+        - pip install --upgrade black==18.9b0
+        - pip install selenium==3.141.0
       script: black . --check --diff
     - stage: check
       language: javascript
