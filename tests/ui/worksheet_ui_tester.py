@@ -17,9 +17,11 @@ class WorksheetUITester(UITester):
 
 
 # TEST
+'''
 driver = webdriver.Chrome()
 worksheet_tester = WorksheetUITester(driver, 'http://localhost', 'codalab')
 worksheet_tester.run()
+'''
 
 driver = webdriver.Firefox()
 # worksheet_tester = WorksheetUITester(
