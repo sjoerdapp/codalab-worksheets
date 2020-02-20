@@ -42,7 +42,11 @@ jobs:
         - python3 codalab_service.py build services --version ${TRAVIS_BRANCH} --pull $([ -z "${CODALAB_DOCKER_USERNAME}" ] || [ "$TRAVIS_PULL_REQUEST_BRANCH" != "" ] || echo "--push")
         - python3 codalab_service.py start --services default monitor --version ${TRAVIS_BRANCH}
       before_script:
-        - export PATH="/tmp/firefox:$PATH"
+        #- export PATH="/tmp/firefox:$PATH"
+        - wget https://github.com/mozilla/geckodriver/releases/download/v0.20.1/geckodriver-v0.20.1-linux64.tar.gz
+        - mkdir geckodriver
+        - tar -xzf geckodriver-v0.20.1-linux64.tar.gz -C geckodriver
+        - export PATH=$PATH:$PWD/geckodriver
         #  - echo "Using firefox version `firefox --version`
       script:
         - python3 codalab_service.py test --version ${TRAVIS_BRANCH} default
