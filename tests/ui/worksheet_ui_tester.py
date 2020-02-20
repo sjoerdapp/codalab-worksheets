@@ -1,4 +1,5 @@
 from selenium import webdriver
+from selenium.webdriver import FirefoxOptions
 from ui_tester import UITester
 
 
@@ -26,7 +27,9 @@ if __name__ == '__main__':
 
     # ff_profile_dir = "/usr/local/selenium/webdriver/firefox"
     # ff_profile = webdriver.FirefoxProfile(profile_directory=ff_profile_dir)
-    driver = webdriver.Firefox(log_path="")
+    opts = FirefoxOptions()
+    opts.add_argument("--headless")
+    driver = webdriver.Firefox(log_path="", firefox_options=opts)
     # worksheet_tester = WorksheetUITester(
     #     driver, 'https://worksheets-dev.codalab.org', 'codalab'
     # )
