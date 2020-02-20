@@ -25,7 +25,6 @@ import socket
 import subprocess
 
 from test_cli import TestModule
-from scripts.create_sample_worksheet import SampleWorksheet
 
 DEFAULT_SERVICES = ['mysql', 'nginx', 'frontend', 'rest-server', 'bundle-manager', 'worker', 'init']
 
