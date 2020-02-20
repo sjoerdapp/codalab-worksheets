@@ -36,7 +36,9 @@ jobs:
         - sudo mv docker-compose /usr/local/bin
         - sudo service mysql stop
       install:
+        # TODO: replace with pip install -r requirements.txt
         - pip install selenium==3.141.0
+        - pip install diffimg==0.2.3
         - python3 codalab_service.py build services --version ${TRAVIS_BRANCH} --pull $([ -z "${CODALAB_DOCKER_USERNAME}" ] || [ "$TRAVIS_PULL_REQUEST_BRANCH" != "" ] || echo "--push")
         - python3 codalab_service.py start --services default monitor --version ${TRAVIS_BRANCH}
       before_script:
