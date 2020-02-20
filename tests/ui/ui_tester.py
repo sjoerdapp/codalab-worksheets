@@ -14,7 +14,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 
 class UITester(ABC):
     _BASE_PATH = base_path = os.path.dirname(os.path.abspath(__file__))
-    _SCREENSHOT_DIFF_THRESHOLD_PERCENT = 5
+    _SCREENSHOT_DIFF_THRESHOLD_PERCENT = 8
 
     def __init__(self, test_name, base_url='http://localhost', password='codalab'):
         self._test_name = test_name
@@ -112,8 +112,8 @@ class UITester(ABC):
                     ignore_alpha=True,
                 )
                 print(
-                    '\033[91mScreenshot comparison failed for {} by {}%\033[0m'.format(
-                        screenshot_filename, diff_percent
+                    '\033[91mScreenshot comparison failed in {} for {} by {}%\033[0m'.format(
+                        self._get_browser(), screenshot_filename, diff_percent
                     )
                 )
 
@@ -131,10 +131,12 @@ class UITester(ABC):
         create_path(output_dir)
         output_dir = os.path.join(output_dir, self._test_name)
         create_path(output_dir)
-        browser = self._driver.capabilities['browserName'].lower()
-        output_dir = os.path.join(output_dir, browser)
+        output_dir = os.path.join(output_dir, self._get_browser())
         create_path(output_dir)
         return output_dir
+
+    def _get_browser(self):
+        return self._driver.capabilities['browserName']
 
 
 class WorksheetUITester(UITester):
