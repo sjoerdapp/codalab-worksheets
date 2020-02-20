@@ -13,4 +13,3 @@ fusepy==2.0.4
 python-dateutil
 diffimg==0.2.3
 selenium==3.141.0
-# chromedriver-binary==80.0.3987.106.0

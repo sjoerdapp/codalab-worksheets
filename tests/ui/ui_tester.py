@@ -1,8 +1,11 @@
+import argparse
 import os
 import time
 
 from abc import ABC, abstractmethod
 from diffimg import diff
+from selenium import webdriver
+from selenium.webdriver import ChromeOptions, FirefoxOptions
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
@@ -11,20 +14,32 @@ from selenium.webdriver.support.wait import WebDriverWait
 
 class UITester(ABC):
     _BASE_PATH = base_path = os.path.dirname(os.path.abspath(__file__))
-    _IMG_DIFF_THRESHOLD_PERCENT = 1
+    _SCREENSHOT_DIFF_THRESHOLD_PERCENT = 5
 
-    def __init__(self, test_name, driver, base_url, password='codalab'):
+    def __init__(self, test_name, base_url='http://localhost', password='codalab'):
         self._test_name = test_name
-        self._driver = driver
         self._base_url = base_url
         self._password = password
 
     @abstractmethod
-    def run(self):
+    def test(self):
         pass
 
-    def close(self):
+    def run(self):
+        def add_headless(browser_options):
+            if args.headless:
+                browser_options.add_argument('--headless')
+
+        # Test Firefox
+        options = FirefoxOptions()
+        add_headless(options)
+        self._driver = webdriver.Firefox(log_path="", firefox_options=options)
+        self.test()
         self._driver.close()
+
+        # Test Chrome
+        options = ChromeOptions()
+        add_headless(options)
 
     def login(self):
         self._driver.get(self.get_url('/home'))
@@ -64,9 +79,6 @@ class UITester(ABC):
     def output_images(self, selector, num_of_screenshots=10):
         output_dir = self._get_output_dir('out')
         element = "document.getElementById('{}')".format(selector)
-        # Scroll to the bottom and wait for tex and other worksheet components to render
-        self._driver.execute_script('{}.scrollTo(0, {})'.format(element, 9999))
-        time.sleep(20)
         scroll_height = float(self._driver.execute_script('return {}.scrollHeight'.format(element)))
         for i in range(num_of_screenshots):
             y = (i / num_of_screenshots) * scroll_height
@@ -86,7 +98,7 @@ class UITester(ABC):
             diff_percent = (
                 diff(baseline_img, out_img, delete_diff_file=True, ignore_alpha=True) * 100
             )
-            if diff_percent > UITester._IMG_DIFF_THRESHOLD_PERCENT:
+            if diff_percent > UITester._SCREENSHOT_DIFF_THRESHOLD_PERCENT:
                 # If an image comparison has failed, generate diff and print an error message in red
                 has_failed = True
                 diff(
@@ -116,4 +128,45 @@ class UITester(ABC):
         create_path(output_dir)
         output_dir = os.path.join(output_dir, self._test_name)
         create_path(output_dir)
+        browser = self._driver.capabilities['browserName'].lower()
+        output_dir = os.path.join(output_dir, browser)
+        create_path(output_dir)
         return output_dir
+
+
+class WorksheetUITester(UITester):
+    def __init__(self):
+        super().__init__('worksheet')
+
+    def test(self):
+        self.login()
+        self.wait_until_worksheet_loads()
+        self.click_link('Small Worksheet [cl_small_worksheet]')
+        self.switch_to_new_tab()
+        self.wait_until_worksheet_loads()
+        self.output_images('worksheet_container')
+        self.compare_to_baselines()
+
+
+def main():
+    # Add ui tests here and run them
+    all_tests = [WorksheetUITester()]
+
+    start_time = time.time()
+    for test in all_tests:
+        test.run()
+    duration_seconds = time.time() - start_time
+    print("--- Completion Time: {} minutes---".format(duration_seconds / 60))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description='Run screenshot tests for the CodaLab UI'
+    )
+    parser.add_argument(
+        '--headless',
+        action='store_true',
+        help='Whether to test using headless browsers',
+    )
+    args = parser.parse_args()
+    main()
