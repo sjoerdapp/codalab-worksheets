@@ -14,7 +14,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 
 class UITester(ABC):
     _BASE_PATH = base_path = os.path.dirname(os.path.abspath(__file__))
-    _SCREENSHOT_DIFF_THRESHOLD_PERCENT = 8
+    _SCREENSHOT_DIFF_THRESHOLD_PERCENT = 5
 
     def __init__(self, test_name, base_url='http://localhost', password='codalab'):
         self._test_name = test_name
