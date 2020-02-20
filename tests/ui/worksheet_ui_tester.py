@@ -1,5 +1,5 @@
 from selenium import webdriver
-from tests.ui.ui_tester import UITester
+from ui_tester import UITester
 
 
 class WorksheetUITester(UITester):
