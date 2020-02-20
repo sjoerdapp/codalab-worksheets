@@ -257,7 +257,7 @@ def fetch_interpreted_worksheet(uuid):
                     format_metadata(bundle_info.get('metadata'))
     if bundle_uuids:
         return {'items': worksheet_info['items']}
-    worksheet_info["total_times"] = time.process_time() - total_start
+    times["total"] = time.process_time() - total_start
     worksheet_info["times"] = times
     return worksheet_info
 
