@@ -506,7 +506,8 @@ class Worksheet extends React.Component {
         window.history.replaceState({ uuid: this.state.ws.uuid }, '', window.location.pathname);
         $('body').addClass('ws-interface');
         try {
-            await this.state.ws.fetch({ brief: true });
+            const { times } = await this.state.ws.fetch({ brief: true });
+            console.log("times brief", times);
             $('#worksheet_content').show();
             this.setState({
                 updating: false,
@@ -527,7 +528,8 @@ class Worksheet extends React.Component {
                 userInfo: userInfo,
             });
 
-            await this.state.ws.fetch({ brief: false });
+            const { brief } = await this.state.ws.fetch({ brief: false });
+            console.log("times normal", times);
             this.setState({
                 updating: false,
                 version: this.state.version + 1,

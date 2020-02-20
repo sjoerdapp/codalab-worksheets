@@ -683,7 +683,7 @@ def interpret_items(schemas, raw_items, db_model=None, brief=False):
         Having collected bundles in |bundle_infos|, flush them into |blocks|,
         potentially as a single table depending on the mode.
         """
-        if False and brief:
+        if brief:
             # Return a placeholder instead of actually loading bundle info.
             # for item_index, bundle_info in bundle_infos:
             if len(bundle_infos):
