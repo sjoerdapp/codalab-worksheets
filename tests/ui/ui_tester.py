@@ -40,9 +40,9 @@ class UITester(ABC):
         # Test Chrome
         options = ChromeOptions()
         add_headless(options)
-        # self._driver = webdriver.Chrome(chrome_options=options)
-        # self.test()
-        # self._driver.close()
+        self._driver = webdriver.Chrome(chrome_options=options)
+        self.test()
+        self._driver.close()
 
     def login(self):
         self._driver.get(self.get_url('/home'))
