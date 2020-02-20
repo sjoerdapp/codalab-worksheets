@@ -18,7 +18,6 @@ Things not tested:
 
 from collections import namedtuple, OrderedDict
 from contextlib import contextmanager
-from scripts.create_sample_worksheet import SampleWorksheet
 from scripts.test_util import Colorizer, run_command
 
 import argparse
@@ -1697,14 +1696,6 @@ def test(ctx):
     _run_command([cl, 'add', 'bundle', uuid])
     response = ctx.client.fetch_interpreted_worksheet(wuuid)
     check_equals(response['uuid'], wuuid)
-
-
-@TestModule.register('Tony')
-def test(ctx):
-    # Comprehensive worksheet tests
-    ws = SampleWorksheet(cl)
-    ws.create()
-    ws.validate_content()
 
 
 if __name__ == '__main__':

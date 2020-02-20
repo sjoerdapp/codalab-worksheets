@@ -14,7 +14,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 
 class UITester(ABC):
     _BASE_PATH = base_path = os.path.dirname(os.path.abspath(__file__))
-    _SCREENSHOT_DIFF_THRESHOLD_PERCENT = 5
+    _SCREENSHOT_DIFF_THRESHOLD_PERCENT = 8
 
     def __init__(self, test_name, base_url='http://localhost', password='codalab'):
         self._test_name = test_name
@@ -40,6 +40,9 @@ class UITester(ABC):
         # Test Chrome
         options = ChromeOptions()
         add_headless(options)
+        self._driver = webdriver.Chrome(chrome_options=options)
+        self.test()
+        self._driver.close()
 
     def login(self):
         self._driver.get(self.get_url('/home'))
@@ -156,17 +159,14 @@ def main():
     for test in all_tests:
         test.run()
     duration_seconds = time.time() - start_time
-    print("--- Completion Time: {} minutes---".format(duration_seconds / 60))
+    print('Success.')
+    print('\n--- Completion Time: {} minutes---'.format(duration_seconds / 60))
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='Run screenshot tests for the CodaLab UI'
-    )
+    parser = argparse.ArgumentParser(description='Run screenshot tests for the CodaLab UI')
     parser.add_argument(
-        '--headless',
-        action='store_true',
-        help='Whether to test using headless browsers',
+        '--headless', action='store_true', help='Whether to test using headless browsers'
     )
     args = parser.parse_args()
     main()
