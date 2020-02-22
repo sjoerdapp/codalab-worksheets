@@ -14,7 +14,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 
 class UITester(ABC):
     _BASE_PATH = base_path = os.path.dirname(os.path.abspath(__file__))
-    _SCREENSHOT_DIFF_THRESHOLD_PERCENT = 8
+    _SCREENSHOT_DIFF_THRESHOLD_PERCENT = 9
 
     def __init__(self, test_name, base_url='http://localhost', password='codalab'):
         self._test_name = test_name
@@ -40,9 +40,9 @@ class UITester(ABC):
         # Test Chrome
         options = ChromeOptions()
         add_headless(options)
-        # self._driver = webdriver.Chrome(chrome_options=options)
-        # self.test()
-        # self._driver.close()
+        self._driver = webdriver.Chrome(chrome_options=options)
+        self.test()
+        self._driver.close()
 
     def login(self):
         self._driver.get(self.get_url('/home'))

@@ -32,10 +32,11 @@ jobs:
         - pip install -r requirements.txt
       before_script:
         # Chrome
-        - wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-        - sudo sh -c 'echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
-        - sudo apt-get update
-        - sudo apt-get install google-chrome-stable
+        - wget https://chromedriver.storage.googleapis.com/2.41/chromedriver_linux64.zip
+        - unzip chromedriver_linux64.zip
+        - sudo mv chromedriver /usr/bin/chromedriver
+        - sudo chown root:root /usr/bin/chromedriver
+        - sudo chmod +x /usr/bin/chromedriver
         # Firefox
         - wget https://github.com/mozilla/geckodriver/releases/download/v0.21.0/geckodriver-v0.21.0-linux64.tar.gz
         - mkdir geckodriver
