@@ -13,13 +13,12 @@ from selenium.webdriver.support.wait import WebDriverWait
 
 
 class UITester(ABC):
-    _BASE_PATH = base_path = os.path.dirname(os.path.abspath(__file__))
     _SCREENSHOT_DIFF_THRESHOLD_PERCENT = 9
+    _BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 
-    def __init__(self, test_name, base_url='http://localhost', password='codalab'):
+    def __init__(self, test_name, base_url='http://localhost'):
         self._test_name = test_name
         self._base_url = base_url
-        self._password = password
 
     @abstractmethod
     def test(self):
@@ -33,7 +32,7 @@ class UITester(ABC):
         # Test Firefox
         options = FirefoxOptions()
         add_headless(options)
-        self._driver = webdriver.Firefox(log_path="", firefox_options=options)
+        self._driver = webdriver.Firefox(log_path='', firefox_options=options)
         self.test()
         self._driver.close()
 
@@ -44,11 +43,11 @@ class UITester(ABC):
         self.test()
         self._driver.close()
 
-    def login(self):
+    def login(self, username='codalab', password='codalab'):
         self._driver.get(self.get_url('/home'))
         self.click_link('LOGIN')
-        self.fill_field('id_login', 'codalab')
-        password_field = self.fill_field('id_password', self._password)
+        self.fill_field('id_login', username)
+        password_field = self.fill_field('id_password', password)
         password_field.send_keys(Keys.ENTER)
 
     def save_screenshot(self, path, filename):
@@ -139,7 +138,7 @@ class UITester(ABC):
         return self._driver.capabilities['browserName']
 
 
-class WorksheetUITester(UITester):
+class WorksheetTest(UITester):
     def __init__(self):
         super().__init__('worksheet')
 
@@ -155,7 +154,7 @@ class WorksheetUITester(UITester):
 
 def main():
     # Add ui tests here and run them
-    all_tests = [WorksheetUITester()]
+    all_tests = [WorksheetTest()]
 
     start_time = time.time()
     for test in all_tests:
