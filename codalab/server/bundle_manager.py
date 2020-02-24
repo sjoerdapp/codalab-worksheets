@@ -28,6 +28,7 @@ BUNDLE_TIMEOUT_DAYS = 60
 # When using the REST api, it is allowed to set Memory to 0 but that means the container has unbounded
 # access to the host machine's memory, which we have decided to not allow
 MINIMUM_REQUEST_MEMORY_BYTES = 4 * 1024 * 1024
+CODALAB_PUBLIC_INSTANCE_TAG = 'codalab-public'
 
 
 class BundleManager(object):
@@ -329,37 +330,38 @@ class BundleManager(object):
 
         # Dispatch bundles
         for bundle, bundle_resources in staged_bundles_to_run:
-
-            def get_available_workers(user_id):
-                # Make a deepcopy of the workers list so the filtering and deducting don't modify the list
-                workers_list = copy.deepcopy(workers.user_owned_workers(user_id))
-                workers_list = self._deduct_worker_resources(workers_list, running_bundles_info)
-                workers_list = self._filter_and_sort_workers(workers_list, bundle, bundle_resources)
-                return workers_list
-
-            workers_list = None
+            workers_list = []
             if bundle.owner_id != self._model.root_user_id:
-                # First try private workers
-                workers_list = get_available_workers(bundle.owner_id)
-                # If there is no user_owned worker, try to schedule the current bundle to run on a CodaLab's public worker.
+                user_owned_workers = copy.deepcopy(workers.user_owned_workers(bundle.owner_id))
+                # First try to dispatch the current bundle to run on the requested user owned worker
+                if bundle.metadata.request_queue:
+                    requested_tag = self._get_requested_tag(bundle.metadata.request_queue)
+                    workers_list = self._get_matched_workers(requested_tag, user_owned_workers)
+                # Then try to dispatch the current bundle to run on a user owned worker if the first try failed
                 if len(workers_list) == 0:
-                    # Check if there is enough parallel run quota left for this user
-                    if (
-                        self._model.get_user_parallel_run_quota_left(
-                            bundle.owner_id, user_info_cache[bundle.owner_id]
-                        )
-                        <= 0
-                    ):
-                        logger.info(
-                            "User %s has no parallel run quota left, skipping job for now",
-                            bundle.owner_id,
-                        )
-                        # Don't start this bundle yet, as there is no parallel_run_quota left for this user.
-                        continue
-            if not workers_list:
-                # Length is 0 (private user with no workers) or is None (root user)
-                workers_list = get_available_workers(self._model.root_user_id)
+                    workers_list = user_owned_workers
 
+            # If there is no user owned worker or the bundle is requested to run on CodaLab's public workers,
+            # try to schedule the current bundle to run on a CodaLab's public worker.
+            if len(workers_list) == 0 or requested_tag == CODALAB_PUBLIC_INSTANCE_TAG:
+                # Get CodaLab's public workers
+                workers_list = copy.deepcopy(workers.user_owned_workers(self._model.root_user_id))
+                # Check if there is enough parallel run quota left for this user
+                if (
+                    self._model.get_user_parallel_run_quota_left(
+                        bundle.owner_id, user_info_cache[bundle.owner_id]
+                    )
+                    <= 0
+                ):
+                    logger.info(
+                        "User %s has no parallel run quota left, skipping job for now",
+                        bundle.owner_id,
+                    )
+                    # Don't start this bundle yet, as there is no parallel_run_quota left for this user.
+                    continue
+
+            workers_list = self._deduct_worker_resources(workers_list, running_bundles_info)
+            workers_list = self._filter_and_sort_workers(workers_list, bundle, bundle_resources)
             # Try starting bundles on the workers that have enough computing resources
             for worker in workers_list:
                 if self._try_start_bundle(workers, worker, bundle, bundle_resources):
@@ -399,11 +401,6 @@ class BundleManager(object):
         for worker in workers_list:
             worker_id = worker['worker_id']
             has_gpu[worker_id] = worker['gpus'] > 0
-
-        # Filter by tag.
-        request_queue = bundle.metadata.request_queue
-        if request_queue:
-            workers_list = self._get_matched_workers(request_queue, workers_list)
 
         # Filter by CPUs.
         workers_list = [
@@ -668,16 +665,25 @@ class BundleManager(object):
         return None
 
     @staticmethod
-    def _get_matched_workers(request_queue, workers):
+    def _get_requested_tag(request_queue):
         """
-        Get all of the workers that match with the name of the requested worker
-        :param request_queue: a tag that can be used to match workers
-        :param workers: a list of workers
-        :return: a list of matched workers
+        Extract the tag information
+        :param request_queue: a requested tag (format: "tag=<customized tag>") that can be used to match workers
+        :return: a requested tag without "tag=" prefix
         """
         tagm = re.match('tag=(.+)', request_queue)
         if tagm != None:
-            worker_tag = tagm.group(1)
+            return tagm.group(1)
+
+    @staticmethod
+    def _get_matched_workers(worker_tag, workers):
+        """
+        Get all of the workers that match with the name of the requested worker
+        :param worker_tag: a worker tag that can be used to match workers
+        :param workers: a list of workers
+        :return: a list of matched workers
+        """
+        if worker_tag != None:
             matched_workers = [worker for worker in workers if worker['tag'] == worker_tag]
         return matched_workers or []
 
@@ -757,7 +763,7 @@ class BundleManager(object):
                 )
             elif bundle.metadata.request_queue:
                 matched_workers = self._get_matched_workers(
-                    bundle.metadata.request_queue, workers.workers()
+                    self._get_requested_tag(bundle.metadata.request_queue), workers.workers()
                 )
                 # For those bundles that were requested to run on a worker which does not exist in the system
                 # temporarily, we filter out those bundles so that they won't be dispatched to run on workers.
