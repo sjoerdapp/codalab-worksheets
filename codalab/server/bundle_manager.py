@@ -334,9 +334,8 @@ class BundleManager(object):
             if bundle.owner_id != self._model.root_user_id:
                 user_owned_workers = copy.deepcopy(workers.user_owned_workers(bundle.owner_id))
                 # First try to dispatch the current bundle to run on the requested user owned worker
-                if bundle.metadata.request_queue:
-                    requested_tag = self._get_requested_tag(bundle.metadata.request_queue)
-                    workers_list = self._get_matched_workers(requested_tag, user_owned_workers)
+                requested_tag = self._get_requested_tag(bundle.metadata.request_queue)
+                workers_list = self._get_matched_workers(requested_tag, user_owned_workers)
                 # Then try to dispatch the current bundle to run on a user owned worker if the first try failed
                 if len(workers_list) == 0:
                     workers_list = user_owned_workers
@@ -683,9 +682,10 @@ class BundleManager(object):
         :param workers: a list of workers
         :return: a list of matched workers
         """
+        matched_workers = []
         if worker_tag != None:
             matched_workers = [worker for worker in workers if worker['tag'] == worker_tag]
-        return matched_workers or []
+        return matched_workers
 
     def _get_staged_bundles_to_run(self, workers, user_info_cache):
         """
@@ -708,6 +708,7 @@ class BundleManager(object):
                 user_info_cache[bundle.owner_id] = user_info
 
             bundle_resources = self._compute_bundle_resources(bundle, user_info)
+            requested_tag = self._get_requested_tag(bundle.metadata.request_queue)
 
             failures = []
             failures.append(
@@ -761,10 +762,8 @@ class BundleManager(object):
                     bundle,
                     {'state': State.FAILED, 'metadata': {'failure_message': failure_message}},
                 )
-            elif bundle.metadata.request_queue:
-                matched_workers = self._get_matched_workers(
-                    self._get_requested_tag(bundle.metadata.request_queue), workers.workers()
-                )
+            elif requested_tag and requested_tag != CODALAB_PUBLIC_INSTANCE_TAG:
+                matched_workers = self._get_matched_workers(requested_tag, workers.workers())
                 # For those bundles that were requested to run on a worker which does not exist in the system
                 # temporarily, we filter out those bundles so that they won't be dispatched to run on workers.
                 if len(matched_workers) == 0:
