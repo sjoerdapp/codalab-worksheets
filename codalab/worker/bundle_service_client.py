@@ -46,13 +46,15 @@ def wrap_exception(message):
 
 def ensure_str(response):
     """
-    Ensure the type of response to be string
-    :param response: an response in bytes or string
-    :return: the input response in string type
+    Ensure the data type of input response to be string
+    :param response: a response in bytes or string
+    :return: the input response in string
     """
+    if isinstance(response, str):
+        return response
     try:
-        response_str = response if isinstance(response, str) else response.decode()
-        return response_str
+        response = response.decode()
+        return response
     except UnicodeDecodeError:
         return BINARY_PLACEHOLDER
 
