@@ -13,7 +13,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 
 
 class UITester(ABC):
-    _SCREENSHOT_DIFF_THRESHOLD_PERCENT = 9
+    _SCREENSHOT_DIFF_THRESHOLD_PERCENT = 10
     _BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 
     def __init__(self, test_name, base_url='http://localhost'):
@@ -45,22 +45,21 @@ class UITester(ABC):
 
     def login(self, username='codalab', password='codalab'):
         self._driver.get(self.get_url('/home'))
-        self.click_link('LOGIN')
-        self.fill_field('id_login', username)
-        password_field = self.fill_field('id_password', password)
-        password_field.send_keys(Keys.ENTER)
+        self.click_link(By.LINK_TEXT, 'LOGIN')
+        self.fill_field(By.ID, 'id_login', username)
+        self.fill_field(By.ID, 'id_password', password, press_enter=True)
 
     def save_screenshot(self, path, filename):
         self._driver.save_screenshot(os.path.join(path, filename))
 
-    def click_link(self, selector):
-        link = self._driver.find_element_by_link_text(selector)
-        link.click()
+    def click_link(self, by, selector):
+        self._driver.find_element(by, selector).click()
 
-    def fill_field(self, selector, text):
-        textbox = self._driver.find_element_by_id(selector)
+    def fill_field(self, by, selector, text, press_enter=False):
+        textbox = self._driver.find_element(by, selector)
         textbox.send_keys(text)
-        return textbox
+        if press_enter:
+            textbox.send_keys(Keys.ENTER)
 
     def wait_until_worksheet_loads(self):
         self.wait_until_page_loads('ws-item')
@@ -145,16 +144,31 @@ class WorksheetTest(UITester):
     def test(self):
         self.login()
         self.wait_until_worksheet_loads()
-        self.click_link('Small Worksheet [cl_small_worksheet]')
+        self.click_link(By.LINK_TEXT, 'Small Worksheet [cl_small_worksheet]')
         self.switch_to_new_tab()
         self.wait_until_worksheet_loads()
         self.output_images('worksheet_container')
         self.compare_to_baselines()
 
 
+class EditWorksheetTest(UITester):
+    def __init__(self):
+        super().__init__('worksheet')
+
+    def test(self):
+        self.login()
+        self.wait_until_worksheet_loads()
+        self.click_link(By.XPATH, '//*[@title="New Worksheet"]')
+        self.fill_field(By.ID, 'name', 'New worksheet')
+        self.click_link(By.XPATH, "//span[.='Confirm']")
+
+
 def main():
     # Add ui tests here and run them
-    all_tests = [WorksheetTest()]
+    all_tests = [
+        # WorksheetTest(),
+        EditWorksheetTest()
+    ]
 
     start_time = time.time()
     for test in all_tests:
