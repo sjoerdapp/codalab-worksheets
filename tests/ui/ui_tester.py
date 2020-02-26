@@ -160,7 +160,10 @@ class EditWorksheetTest(UITester):
         self.wait_until_worksheet_loads()
         self.click_link(By.XPATH, '//*[@title="New Worksheet"]')
         self.fill_field(By.ID, 'name', 'New worksheet')
-        self.click_link(By.XPATH, "//span[.='Confirm']")
+        self._driver.find_element(By.XPATH, "//span[.='Confirm']").find_element(
+            By.XPATH, './..'
+        ).click()
+        time.sleep(10)
 
 
 def main():
