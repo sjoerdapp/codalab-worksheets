@@ -63,15 +63,13 @@ class ActionButtons extends React.Component<{
                         <Button
                             size='small'
                             color='inherit'
+                            id='upload-button'
                             aria-label='Add New Upload'
-                            // className={classes.uploadButton}
                             onClick={this.handleClick}
                             disabled={!editPermission}
                         >
-                            {/* <label> */}
                             <UploadIcon className={classes.buttonIcon} />
                             Upload
-                            {/* </label> */}
                         </Button>
                         <Menu
                             id='upload-menu'

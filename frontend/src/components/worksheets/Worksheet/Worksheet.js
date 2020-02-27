@@ -731,7 +731,7 @@ class Worksheet extends React.Component {
                         if (this.state.focusIndex < 0) {
                             $('html, body').animate({ scrollTop: $(document).height() }, 'fast');
                         }
-                        document.querySelector('label[htmlfor=codalab-file-upload-input]').click();
+                        document.querySelector('Button[id=upload-button]').click();
                     }.bind(this),
                     'keyup',
                 );
