@@ -53,8 +53,7 @@ def ensure_str(response):
     if isinstance(response, str):
         return response
     try:
-        response = response.decode()
-        return response
+        return response.decode()
     except UnicodeDecodeError:
         return BINARY_PLACEHOLDER
 
