@@ -28,7 +28,6 @@ BUNDLE_TIMEOUT_DAYS = 60
 # When using the REST api, it is allowed to set Memory to 0 but that means the container has unbounded
 # access to the host machine's memory, which we have decided to not allow
 MINIMUM_REQUEST_MEMORY_BYTES = 4 * 1024 * 1024
-CODALAB_PUBLIC_INSTANCE_TAG = 'codalab-public'
 
 
 class BundleManager(object):
@@ -330,21 +329,26 @@ class BundleManager(object):
 
         # Dispatch bundles
         for bundle, bundle_resources in staged_bundles_to_run:
+
+            def get_available_workers(user_id):
+                # First try to dispatch the current bundle to run on the requested worker
+                user_owned_workers = copy.deepcopy(workers.user_owned_workers(user_id))
+                if bundle.metadata.request_queue:
+                    workers_list = self._get_matched_workers(
+                        bundle.metadata.request_queue, user_owned_workers
+                    )
+                else:
+                    workers_list = user_owned_workers
+                return workers_list
+
             workers_list = []
             if bundle.owner_id != self._model.root_user_id:
-                user_owned_workers = copy.deepcopy(workers.user_owned_workers(bundle.owner_id))
-                # First try to dispatch the current bundle to run on the requested user owned worker
-                requested_tag = self._get_requested_tag(bundle.metadata.request_queue)
-                workers_list = self._get_matched_workers(requested_tag, user_owned_workers)
-                # Then try to dispatch the current bundle to run on a user owned worker if the first try failed
-                if len(workers_list) == 0:
-                    workers_list = user_owned_workers
+                # matched workers in private instances
+                workers_list = get_available_workers(bundle.owner_id)
 
             # If there is no user owned worker or the bundle is requested to run on CodaLab's public workers,
             # try to schedule the current bundle to run on a CodaLab's public worker.
-            if len(workers_list) == 0 or requested_tag == CODALAB_PUBLIC_INSTANCE_TAG:
-                # Get CodaLab's public workers
-                workers_list = copy.deepcopy(workers.user_owned_workers(self._model.root_user_id))
+            if len(workers_list) == 0:
                 # Check if there is enough parallel run quota left for this user
                 if (
                     self._model.get_user_parallel_run_quota_left(
@@ -358,6 +362,8 @@ class BundleManager(object):
                     )
                     # Don't start this bundle yet, as there is no parallel_run_quota left for this user.
                     continue
+                # matched workers in public instances
+                workers_list = get_available_workers(self._model.root_user_id)
 
             workers_list = self._deduct_worker_resources(workers_list, running_bundles_info)
             workers_list = self._filter_and_sort_workers(workers_list, bundle, bundle_resources)
@@ -664,18 +670,7 @@ class BundleManager(object):
         return None
 
     @staticmethod
-    def _get_requested_tag(request_queue):
-        """
-        Extract the tag information
-        :param request_queue: a requested tag (format: "tag=<customized tag>") that can be used to match workers
-        :return: a requested tag without "tag=" prefix
-        """
-        tagm = re.match('tag=(.+)', request_queue)
-        if tagm != None:
-            return tagm.group(1)
-
-    @staticmethod
-    def _get_matched_workers(worker_tag, workers):
+    def _get_matched_workers(request_queue, workers):
         """
         Get all of the workers that match with the name of the requested worker
         :param worker_tag: a worker tag that can be used to match workers
@@ -683,7 +678,9 @@ class BundleManager(object):
         :return: a list of matched workers
         """
         matched_workers = []
-        if worker_tag != None:
+        tagm = re.match('tag=(.+)', request_queue)
+        if tagm != None:
+            worker_tag = tagm.group(1)
             matched_workers = [worker for worker in workers if worker['tag'] == worker_tag]
         return matched_workers
 
@@ -708,7 +705,6 @@ class BundleManager(object):
                 user_info_cache[bundle.owner_id] = user_info
 
             bundle_resources = self._compute_bundle_resources(bundle, user_info)
-            requested_tag = self._get_requested_tag(bundle.metadata.request_queue)
 
             failures = []
             failures.append(
@@ -762,8 +758,10 @@ class BundleManager(object):
                     bundle,
                     {'state': State.FAILED, 'metadata': {'failure_message': failure_message}},
                 )
-            elif requested_tag and requested_tag != CODALAB_PUBLIC_INSTANCE_TAG:
-                matched_workers = self._get_matched_workers(requested_tag, workers.workers())
+            elif bundle.metadata.request_queue:
+                matched_workers = self._get_matched_workers(
+                    bundle.metadata.request_queue, workers.workers()
+                )
                 # For those bundles that were requested to run on a worker which does not exist in the system
                 # temporarily, we filter out those bundles so that they won't be dispatched to run on workers.
                 if len(matched_workers) == 0:
