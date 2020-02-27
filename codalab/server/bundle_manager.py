@@ -343,7 +343,7 @@ class BundleManager(object):
 
             workers_list = []
             if bundle.owner_id != self._model.root_user_id:
-                # matched workers in private instances
+                # First try to match workers in private instances
                 workers_list = get_available_workers(bundle.owner_id)
 
             # If there is no user owned worker or the bundle is requested to run on CodaLab's public workers,
@@ -673,7 +673,7 @@ class BundleManager(object):
     def _get_matched_workers(request_queue, workers):
         """
         Get all of the workers that match with the name of the requested worker
-        :param worker_tag: a worker tag that can be used to match workers
+        :param request_queue: a tag that can be used to match workers
         :param workers: a list of workers
         :return: a list of matched workers
         """
