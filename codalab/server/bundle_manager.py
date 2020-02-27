@@ -331,7 +331,6 @@ class BundleManager(object):
         for bundle, bundle_resources in staged_bundles_to_run:
 
             def get_available_workers(user_id):
-                # First try to dispatch the current bundle to run on the requested worker
                 user_owned_workers = copy.deepcopy(workers.user_owned_workers(user_id))
                 if bundle.metadata.request_queue:
                     workers_list = self._get_matched_workers(
