@@ -162,7 +162,7 @@ def fetch_interpreted_worksheet(uuid):
     all bundles.
     """
     times = {}
-    total_start = time.process_time()
+    total_start = time.time()
     bundle_uuids = request.query.getall('bundle_uuid')
     brief = request.query.get("brief", "0") == "1"
     worksheet_info = get_worksheet_info(uuid, fetch_items=True, fetch_permissions=True)
@@ -176,16 +176,16 @@ def fetch_interpreted_worksheet(uuid):
         worksheet_info['owner_name'] = owner.user_name
 
     # Fetch items.
-    start = time.process_time()
+    start = time.time()
     worksheet_info['raw'] = get_worksheet_lines(worksheet_info)
-    times["get_worksheet_lines"] = time.process_time() - start
+    times["get_worksheet_lines"] = time.time() - start
 
     # Replace searches with raw items.
     # This needs to be done before get_worksheet_lines because this replaces
     # user-written raw items.
-    start = time.process_time()
+    start = time.time()
     worksheet_info['items'] = expand_raw_items(worksheet_info['items'])
-    times["expand_raw_items"] = time.process_time() - start
+    times["expand_raw_items"] = time.time() - start
 
     # Set permissions
     worksheet_info['edit_permission'] = worksheet_info['permission'] == GROUP_OBJECT_PERMISSION_ALL
@@ -198,7 +198,7 @@ def fetch_interpreted_worksheet(uuid):
 
     # Go and fetch more information about the worksheet contents by
     # resolving the interpreted items.
-    start = time.process_time()
+    start = time.time()
     try:
         interpreted_blocks = interpret_items(
             get_default_schemas(), worksheet_info['items'], db_model=local.model, brief=brief
@@ -206,7 +206,7 @@ def fetch_interpreted_worksheet(uuid):
     except UsageError as e:
         interpreted_blocks = {'blocks': []}
         worksheet_info['error'] = str(e)
-    times["interpret_items"] = time.process_time() - start
+    times["interpret_items"] = time.time() - start
 
     # bundle_uuids is an optional argument that, if exists, contain the uuids of all the unfinished run bundles that need updating
     # In this case, full_worksheet will return a list of item parallel to ws.info.items that contain only items that need updating.
@@ -229,9 +229,9 @@ def fetch_interpreted_worksheet(uuid):
                 if not is_relevant_block:
                     interpreted_blocks['blocks'][i] = None
 
-    start = time.process_time()
+    start = time.time()
     worksheet_info['items'] = resolve_interpreted_blocks(interpreted_blocks['blocks'])
-    times["resolve_interpreted_blocks"] = time.process_time() - start
+    times["resolve_interpreted_blocks"] = time.time() - start
     worksheet_info['raw_to_block'] = interpreted_blocks['raw_to_block']
     worksheet_info['block_to_raw'] = interpreted_blocks['block_to_raw']
     for item in worksheet_info['items']:
@@ -257,7 +257,7 @@ def fetch_interpreted_worksheet(uuid):
                     format_metadata(bundle_info.get('metadata'))
     if bundle_uuids:
         return {'items': worksheet_info['items']}
-    times["total"] = time.process_time() - total_start
+    times["total"] = time.time() - total_start
     worksheet_info["times"] = times
     return worksheet_info
 
